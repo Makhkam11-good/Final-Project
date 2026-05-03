@@ -45,12 +45,14 @@ public class GameScreen extends ScreenAdapter {
         player.render(shapeRenderer);
         shapeRenderer.end();
 
+        float hudX = 16f;
+        float hudY = 464f;
+        float lineHeight = 24f;
         game.getBatch().begin();
-        game.getFont().draw(game.getBatch(), "GAME SCREEN", 340f, 360f);
-        game.getFont().draw(game.getBatch(), "Difficulty: " + gameManager.getDifficultyName(), 320f, 320f);
-        game.getFont().draw(game.getBatch(), "Press ESC to pause", 320f, 280f);
-        game.getFont().draw(game.getBatch(), "Player State: " + player.getCurrentState().getName(), 320f, 240f);
-        game.getFont().draw(game.getBatch(), "HP: " + (int) player.getHp() + "/" + (int) player.getMaxHp(), 320f, 210f);
+        game.getFont().draw(game.getBatch(), "Difficulty: " + gameManager.getDifficultyName(), hudX, hudY);
+        game.getFont().draw(game.getBatch(), "Press ESC to pause", hudX, hudY - lineHeight);
+        game.getFont().draw(game.getBatch(), "Player State: " + player.getCurrentState().getName(), hudX, hudY - (lineHeight * 2f));
+        game.getFont().draw(game.getBatch(), "HP: " + (int) player.getHp() + "/" + (int) player.getMaxHp(), hudX, hudY - (lineHeight * 3f));
         game.getBatch().end();
     }
 
