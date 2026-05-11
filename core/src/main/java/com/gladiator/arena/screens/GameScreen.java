@@ -7,21 +7,41 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.gladiator.arena.GladiatorGame;
 import com.gladiator.arena.entities.Player;
+import com.gladiator.arena.events.EventBus;
+import com.gladiator.arena.events.EventListener;
+import com.gladiator.arena.events.GameEvent;
 import com.gladiator.arena.managers.GameManager;
 import com.gladiator.arena.managers.GameStateManager;
+import com.gladiator.arena.managers.LevelManager;
 
 public class GameScreen extends ScreenAdapter {
+    private static final int PROTOTYPE_WAVE_ENEMY_COUNT = 4;
+
     private final GladiatorGame game;
     private final GameManager gameManager;
+    private final EventBus eventBus;
+    private final LevelManager levelManager;
+    private final EventListener waveClearedListener;
+    private final EventListener playerDiedListener;
     private final Player player;
     private final ShapeRenderer shapeRenderer;
     private boolean disposed;
+    private boolean transitioning;
+    private boolean playerDeathPosted;
 
     public GameScreen(GladiatorGame game) {
         this.game = game;
         this.gameManager = GameManager.getInstance();
+        this.eventBus = EventBus.getInstance();
+        this.levelManager = new LevelManager(eventBus);
+        this.waveClearedListener = this::handleWaveCleared;
+        this.playerDiedListener = this::handlePlayerDied;
         this.player = new Player();
         this.shapeRenderer = new ShapeRenderer();
+
+        eventBus.subscribe(GameEvent.Type.WAVE_CLEARED, waveClearedListener);
+        eventBus.subscribe(GameEvent.Type.PLAYER_DIED, playerDiedListener);
+        levelManager.startWave(1, PROTOTYPE_WAVE_ENEMY_COUNT);
     }
 
     @Override
@@ -37,7 +57,21 @@ public class GameScreen extends ScreenAdapter {
             return;
         }
 
+        if (Gdx.input.isKeyJustPressed(Input.Keys.Q)) {
+            eventBus.post(GameEvent.Type.ENEMY_DIED);
+            if (transitioning) {
+                return;
+            }
+        }
+
         player.update(delta);
+        if (player.getHp() <= 0f && !playerDeathPosted) {
+            playerDeathPosted = true;
+            eventBus.post(GameEvent.Type.PLAYER_DIED);
+            if (transitioning) {
+                return;
+            }
+        }
 
         ScreenUtils.clear(0.1f, 0.1f, 0.1f, 1f);
         shapeRenderer.setProjectionMatrix(game.getBatch().getProjectionMatrix());
@@ -53,7 +87,30 @@ public class GameScreen extends ScreenAdapter {
         game.getFont().draw(game.getBatch(), "Press ESC to pause", hudX, hudY - lineHeight);
         game.getFont().draw(game.getBatch(), "Player State: " + player.getCurrentState().getName(), hudX, hudY - (lineHeight * 2f));
         game.getFont().draw(game.getBatch(), "HP: " + (int) player.getHp() + "/" + (int) player.getMaxHp(), hudX, hudY - (lineHeight * 3f));
+        game.getFont().draw(game.getBatch(), "Wave: " + levelManager.getCurrentWave(), hudX, hudY - (lineHeight * 4f));
+        game.getFont().draw(game.getBatch(), "Enemies Alive: " + levelManager.getEnemiesAlive(), hudX, hudY - (lineHeight * 5f));
+        game.getFont().draw(game.getBatch(), "Press Q to post ENEMY_DIED", hudX, hudY - (lineHeight * 6f));
         game.getBatch().end();
+    }
+
+    private void handleWaveCleared(GameEvent event) {
+        if (transitioning) {
+            return;
+        }
+
+        transitioning = true;
+        game.setScreen(new UpgradeScreen(game));
+        dispose();
+    }
+
+    private void handlePlayerDied(GameEvent event) {
+        if (transitioning) {
+            return;
+        }
+
+        transitioning = true;
+        game.setScreen(new GameOverScreen(game));
+        dispose();
     }
 
     @Override
@@ -62,6 +119,9 @@ public class GameScreen extends ScreenAdapter {
             return;
         }
         disposed = true;
+        eventBus.unsubscribe(GameEvent.Type.WAVE_CLEARED, waveClearedListener);
+        eventBus.unsubscribe(GameEvent.Type.PLAYER_DIED, playerDiedListener);
+        levelManager.dispose();
         shapeRenderer.dispose();
     }
 }
