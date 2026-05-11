@@ -2,31 +2,38 @@ package com.gladiator.arena.entities;
 
 import com.badlogic.gdx.graphics.Color;
 
-public class Boss extends Enemy {
-    public Boss(float x, float y) {
+public class Goblin extends Enemy {
+    private boolean aggressive;
+
+    public Goblin(float x, float y) {
         super(
             x,
             y,
-            500f,
-            20f,
-            80f,
-            96f,
-            96f,
+            40f,
             12f,
-            8f,
-            72f,
-            80f,
-            1000,
-            Color.RED
+            100f,
+            32f,
+            48f,
+            4f,
+            6f,
+            24f,
+            36f,
+            25,
+            Color.ORANGE
         );
     }
 
     @Override
     protected void onWaveSpawn() {
+        aggressive = true;
     }
 
     @Override
     protected void updateMovement(float delta, Player player) {
+        if (!aggressive) {
+            return;
+        }
+
         moveToward(player.getX() + Player.SPRITE_WIDTH / 2f, player.getY() + Player.SPRITE_HEIGHT / 2f, delta, speed);
     }
 }

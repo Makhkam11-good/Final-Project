@@ -6,11 +6,14 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.Vector2;
 import com.gladiator.arena.entities.states.AttackState;
 import com.gladiator.arena.entities.states.DeadState;
 import com.gladiator.arena.entities.states.IdleState;
 import com.gladiator.arena.entities.states.PlayerState;
 import com.gladiator.arena.entities.states.RunState;
+
+import java.util.List;
 
 public class Player {
     public static final float SPRITE_WIDTH = 48f;
@@ -24,6 +27,8 @@ public class Player {
     private static final float BASE_MOVE_SPEED = 150f;
     private static final float ATTACK_COOLDOWN_SECONDS = 1.0f;
     private static final float ATTACK_STATE_DURATION = 0.12f;
+    private static final float ATTACK_RADIUS = 80f;
+    private static final float BASE_DAMAGE = 10f;
 
     private float x;
     private float y;
@@ -52,6 +57,10 @@ public class Player {
     }
 
     public void update(float delta) {
+        update(delta, null);
+    }
+
+    public void update(float delta, List<Enemy> enemies) {
         if (isDead()) {
             velocityX = 0f;
             velocityY = 0f;
@@ -65,7 +74,7 @@ public class Player {
         attackTimer -= delta;
         if (attackTimer <= 0f) {
             attackTimer = ATTACK_COOLDOWN_SECONDS;
-            performAttack();
+            performAttack(enemies);
         }
 
         updateAttackStateTimer(delta);
@@ -128,6 +137,10 @@ public class Player {
         return attackTimer;
     }
 
+    public float getDamage() {
+        return BASE_DAMAGE;
+    }
+
     private void handleMovement(float delta) {
         float moveX = 0f;
         float moveY = 0f;
@@ -161,8 +174,13 @@ public class Player {
         y = MathUtils.clamp(y, 0f, ARENA_HEIGHT - SPRITE_HEIGHT);
     }
 
-    private void performAttack() {
+    private void performAttack(List<Enemy> enemies) {
         attackStateTimer = ATTACK_STATE_DURATION;
+
+        Enemy target = findClosestEnemyInRange(enemies);
+        if (target != null) {
+            target.takeDamage(getDamage());
+        }
     }
 
     private void updateAttackStateTimer(float delta) {
@@ -178,5 +196,30 @@ public class Player {
 
     private boolean isDead() {
         return hp <= 0f;
+    }
+
+    private Enemy findClosestEnemyInRange(List<Enemy> enemies) {
+        if (enemies == null || enemies.isEmpty()) {
+            return null;
+        }
+
+        float centerX = x + SPRITE_WIDTH / 2f;
+        float centerY = y + SPRITE_HEIGHT / 2f;
+        float bestDistance = ATTACK_RADIUS;
+        Enemy closest = null;
+
+        for (Enemy enemy : enemies) {
+            if (enemy.isDead()) {
+                continue;
+            }
+
+            float distance = Vector2.dst(centerX, centerY, enemy.getCenterX(), enemy.getCenterY());
+            if (distance <= bestDistance) {
+                bestDistance = distance;
+                closest = enemy;
+            }
+        }
+
+        return closest;
     }
 }

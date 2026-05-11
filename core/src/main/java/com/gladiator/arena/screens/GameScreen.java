@@ -4,18 +4,30 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.gladiator.arena.GladiatorGame;
+import com.gladiator.arena.entities.Enemy;
 import com.gladiator.arena.entities.Player;
 import com.gladiator.arena.events.EventBus;
 import com.gladiator.arena.events.EventListener;
 import com.gladiator.arena.events.GameEvent;
+import com.gladiator.arena.factories.EnemyFactory;
+import com.gladiator.arena.factories.SlimeFactory;
 import com.gladiator.arena.managers.GameManager;
 import com.gladiator.arena.managers.GameStateManager;
 import com.gladiator.arena.managers.LevelManager;
 
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
 public class GameScreen extends ScreenAdapter {
     private static final int PROTOTYPE_WAVE_ENEMY_COUNT = 4;
+    private static final float ARENA_WIDTH = 800f;
+    private static final float ARENA_HEIGHT = 480f;
+    private static final float DEFAULT_ENEMY_WIDTH = 32f;
+    private static final float DEFAULT_ENEMY_HEIGHT = 32f;
 
     private final GladiatorGame game;
     private final GameManager gameManager;
@@ -25,6 +37,9 @@ public class GameScreen extends ScreenAdapter {
     private final EventListener playerDiedListener;
     private final Player player;
     private final ShapeRenderer shapeRenderer;
+    private final List<Enemy> enemies = new ArrayList<>();
+    private final EnemyFactory slimeFactory = new SlimeFactory();
+    private int score;
     private boolean disposed;
     private boolean transitioning;
     private boolean playerDeathPosted;
@@ -42,6 +57,7 @@ public class GameScreen extends ScreenAdapter {
         eventBus.subscribe(GameEvent.Type.WAVE_CLEARED, waveClearedListener);
         eventBus.subscribe(GameEvent.Type.PLAYER_DIED, playerDiedListener);
         levelManager.startWave(1, PROTOTYPE_WAVE_ENEMY_COUNT);
+        spawnPrototypeWave();
     }
 
     @Override
@@ -57,14 +73,17 @@ public class GameScreen extends ScreenAdapter {
             return;
         }
 
-        if (Gdx.input.isKeyJustPressed(Input.Keys.Q)) {
-            eventBus.post(GameEvent.Type.ENEMY_DIED);
-            if (transitioning) {
-                return;
-            }
+        updateEnemies(delta);
+        if (transitioning) {
+            return;
         }
 
-        player.update(delta);
+        player.update(delta, enemies);
+        removeDeadEnemies();
+        if (transitioning) {
+            return;
+        }
+
         if (player.getHp() <= 0f && !playerDeathPosted) {
             playerDeathPosted = true;
             eventBus.post(GameEvent.Type.PLAYER_DIED);
@@ -76,6 +95,9 @@ public class GameScreen extends ScreenAdapter {
         ScreenUtils.clear(0.1f, 0.1f, 0.1f, 1f);
         shapeRenderer.setProjectionMatrix(game.getBatch().getProjectionMatrix());
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        for (Enemy enemy : enemies) {
+            enemy.render(shapeRenderer);
+        }
         player.render(shapeRenderer);
         shapeRenderer.end();
 
@@ -89,8 +111,57 @@ public class GameScreen extends ScreenAdapter {
         game.getFont().draw(game.getBatch(), "HP: " + (int) player.getHp() + "/" + (int) player.getMaxHp(), hudX, hudY - (lineHeight * 3f));
         game.getFont().draw(game.getBatch(), "Wave: " + levelManager.getCurrentWave(), hudX, hudY - (lineHeight * 4f));
         game.getFont().draw(game.getBatch(), "Enemies Alive: " + levelManager.getEnemiesAlive(), hudX, hudY - (lineHeight * 5f));
-        game.getFont().draw(game.getBatch(), "Press Q to post ENEMY_DIED", hudX, hudY - (lineHeight * 6f));
+        game.getFont().draw(game.getBatch(), "Score: " + score, hudX, hudY - (lineHeight * 6f));
         game.getBatch().end();
+    }
+
+    private void spawnPrototypeWave() {
+        enemies.clear();
+        for (int i = 0; i < PROTOTYPE_WAVE_ENEMY_COUNT; i++) {
+            enemies.add(createAtRandomEdge(slimeFactory));
+        }
+    }
+
+    private void updateEnemies(float delta) {
+        for (Enemy enemy : enemies) {
+            enemy.update(delta, player);
+            if (player.getHp() <= 0f && !playerDeathPosted) {
+                playerDeathPosted = true;
+                eventBus.post(GameEvent.Type.PLAYER_DIED);
+                return;
+            }
+        }
+    }
+
+    private void removeDeadEnemies() {
+        Iterator<Enemy> iterator = enemies.iterator();
+        while (iterator.hasNext()) {
+            Enemy enemy = iterator.next();
+            if (!enemy.isDead()) {
+                continue;
+            }
+
+            score += enemy.getScoreReward();
+            iterator.remove();
+            eventBus.post(GameEvent.Type.ENEMY_DIED);
+            if (transitioning) {
+                return;
+            }
+        }
+    }
+
+    private Enemy createAtRandomEdge(EnemyFactory factory) {
+        int edge = MathUtils.random(3);
+        if (edge == 0) {
+            return factory.create(MathUtils.random(0f, ARENA_WIDTH - DEFAULT_ENEMY_WIDTH), ARENA_HEIGHT - DEFAULT_ENEMY_HEIGHT);
+        }
+        if (edge == 1) {
+            return factory.create(MathUtils.random(0f, ARENA_WIDTH - DEFAULT_ENEMY_WIDTH), 0f);
+        }
+        if (edge == 2) {
+            return factory.create(0f, MathUtils.random(0f, ARENA_HEIGHT - DEFAULT_ENEMY_HEIGHT));
+        }
+        return factory.create(ARENA_WIDTH - DEFAULT_ENEMY_WIDTH, MathUtils.random(0f, ARENA_HEIGHT - DEFAULT_ENEMY_HEIGHT));
     }
 
     private void handleWaveCleared(GameEvent event) {
