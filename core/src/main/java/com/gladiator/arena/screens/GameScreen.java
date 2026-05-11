@@ -12,18 +12,21 @@ import com.gladiator.arena.entities.Player;
 import com.gladiator.arena.events.EventBus;
 import com.gladiator.arena.events.EventListener;
 import com.gladiator.arena.events.GameEvent;
+import com.gladiator.arena.factories.BossFactory;
 import com.gladiator.arena.factories.EnemyFactory;
+import com.gladiator.arena.factories.GoblinFactory;
 import com.gladiator.arena.factories.SlimeFactory;
 import com.gladiator.arena.managers.GameManager;
 import com.gladiator.arena.managers.GameStateManager;
 import com.gladiator.arena.managers.LevelManager;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
 public class GameScreen extends ScreenAdapter {
-    private static final int PROTOTYPE_WAVE_ENEMY_COUNT = 4;
+    private static final int FINAL_WAVE = 10;
     private static final float ARENA_WIDTH = 800f;
     private static final float ARENA_HEIGHT = 480f;
     private static final float DEFAULT_ENEMY_WIDTH = 32f;
@@ -38,7 +41,10 @@ public class GameScreen extends ScreenAdapter {
     private final Player player;
     private final ShapeRenderer shapeRenderer;
     private final List<Enemy> enemies = new ArrayList<>();
+    private final List<EnemyFactory> pendingSpawnFactories = new ArrayList<>();
     private final EnemyFactory slimeFactory = new SlimeFactory();
+    private final EnemyFactory goblinFactory = new GoblinFactory();
+    private final EnemyFactory bossFactory = new BossFactory();
     private int score;
     private int enemiesRemainingToSpawn;
     private float spawnTimer;
@@ -47,19 +53,25 @@ public class GameScreen extends ScreenAdapter {
     private boolean playerDeathPosted;
 
     public GameScreen(GladiatorGame game) {
+        this(game, new Player(), 1, 0);
+    }
+
+    public GameScreen(GladiatorGame game, Player player, int waveNumber, int score) {
         this.game = game;
         this.gameManager = GameManager.getInstance();
         this.eventBus = EventBus.getInstance();
         this.levelManager = new LevelManager(eventBus);
         this.waveClearedListener = this::handleWaveCleared;
         this.playerDiedListener = this::handlePlayerDied;
-        this.player = new Player();
+        this.player = player == null ? new Player() : player;
         this.shapeRenderer = new ShapeRenderer();
+        this.score = score;
 
         eventBus.subscribe(GameEvent.Type.WAVE_CLEARED, waveClearedListener);
         eventBus.subscribe(GameEvent.Type.PLAYER_DIED, playerDiedListener);
-        levelManager.startWave(1, PROTOTYPE_WAVE_ENEMY_COUNT);
-        preparePrototypeWaveSpawns();
+        int safeWaveNumber = Math.max(1, Math.min(waveNumber, FINAL_WAVE));
+        int enemiesInWave = prepareWaveSpawns(safeWaveNumber);
+        levelManager.startWave(safeWaveNumber, enemiesInWave);
     }
 
     @Override
@@ -116,13 +128,50 @@ public class GameScreen extends ScreenAdapter {
         game.getFont().draw(game.getBatch(), "Enemies Alive: " + levelManager.getEnemiesAlive(), hudX, hudY - (lineHeight * 5f));
         game.getFont().draw(game.getBatch(), "Score: " + score, hudX, hudY - (lineHeight * 6f));
         game.getFont().draw(game.getBatch(), "Spawn Interval: " + gameManager.getDifficulty().getSpawnInterval() + "s", hudX, hudY - (lineHeight * 7f));
+        game.getFont().draw(game.getBatch(), "DMG: " + (int) player.getDamage() + "  SPD: " + (int) player.getSpeed() + "  CD: " + player.getAttackCooldown() + "s", hudX, hudY - (lineHeight * 8f));
         game.getBatch().end();
     }
 
-    private void preparePrototypeWaveSpawns() {
+    private int prepareWaveSpawns(int waveNumber) {
         enemies.clear();
-        enemiesRemainingToSpawn = PROTOTYPE_WAVE_ENEMY_COUNT;
+        pendingSpawnFactories.clear();
+
+        if (waveNumber == 1) {
+            addPendingEnemies(slimeFactory, 4);
+        } else if (waveNumber == 2) {
+            addPendingEnemies(slimeFactory, 6);
+        } else if (waveNumber == 3) {
+            addPendingEnemies(slimeFactory, 4);
+            addPendingEnemies(goblinFactory, 2);
+        } else if (waveNumber == 4) {
+            addPendingEnemies(goblinFactory, 5);
+            addPendingEnemies(slimeFactory, 3);
+        } else if (waveNumber == 5) {
+            addPendingEnemies(goblinFactory, 8);
+        } else if (waveNumber == 6) {
+            addPendingEnemies(goblinFactory, 6);
+            addPendingEnemies(slimeFactory, 4);
+        } else if (waveNumber == 7) {
+            addPendingEnemies(goblinFactory, 10);
+        } else if (waveNumber == 8) {
+            addPendingEnemies(goblinFactory, 8);
+            addPendingEnemies(slimeFactory, 5);
+        } else if (waveNumber == 9) {
+            addPendingEnemies(goblinFactory, 12);
+        } else {
+            addPendingEnemies(bossFactory, 1);
+        }
+
+        Collections.shuffle(pendingSpawnFactories);
+        enemiesRemainingToSpawn = pendingSpawnFactories.size();
         spawnTimer = 0f;
+        return enemiesRemainingToSpawn;
+    }
+
+    private void addPendingEnemies(EnemyFactory factory, int count) {
+        for (int i = 0; i < count; i++) {
+            pendingSpawnFactories.add(factory);
+        }
     }
 
     private void updateSpawning(float delta) {
@@ -136,7 +185,8 @@ public class GameScreen extends ScreenAdapter {
         }
 
         while (enemiesRemainingToSpawn > 0 && spawnTimer <= 0f) {
-            enemies.add(createAtRandomEdge(slimeFactory));
+            EnemyFactory factory = pendingSpawnFactories.remove(pendingSpawnFactories.size() - 1);
+            enemies.add(createAtRandomEdge(factory));
             enemiesRemainingToSpawn--;
             spawnTimer += gameManager.getDifficulty().getSpawnInterval();
         }
@@ -190,7 +240,18 @@ public class GameScreen extends ScreenAdapter {
         }
 
         transitioning = true;
-        game.setScreen(new UpgradeScreen(game));
+        LevelManager.WaveSummary summary = null;
+        if (event.getPayload() instanceof LevelManager.WaveSummary) {
+            summary = (LevelManager.WaveSummary) event.getPayload();
+        }
+
+        if (summary != null && summary.getWaveNumber() >= FINAL_WAVE) {
+            game.setScreen(new VictoryScreen(game));
+            dispose();
+            return;
+        }
+
+        game.setScreen(new UpgradeScreen(game, player, summary, score));
         dispose();
     }
 

@@ -12,8 +12,11 @@ import com.gladiator.arena.entities.states.DeadState;
 import com.gladiator.arena.entities.states.IdleState;
 import com.gladiator.arena.entities.states.PlayerState;
 import com.gladiator.arena.entities.states.RunState;
+import com.gladiator.arena.decorator.BasePlayerStats;
+import com.gladiator.arena.decorator.PlayerStats;
 
 import java.util.List;
+import java.util.function.UnaryOperator;
 
 public class Player {
     public static final float SPRITE_WIDTH = 48f;
@@ -24,22 +27,19 @@ public class Player {
     private static final float HITBOX_HEIGHT = 40f;
     private static final float ARENA_WIDTH = 800f;
     private static final float ARENA_HEIGHT = 480f;
-    private static final float BASE_MOVE_SPEED = 150f;
-    private static final float ATTACK_COOLDOWN_SECONDS = 1.0f;
     private static final float ATTACK_STATE_DURATION = 0.12f;
     private static final float ATTACK_RADIUS = 80f;
-    private static final float BASE_DAMAGE = 10f;
 
     private float x;
     private float y;
     private float velocityX;
     private float velocityY;
     private float hp;
-    private float maxHp;
     private float attackTimer;
     private float attackStateTimer;
 
     private final Rectangle bounds = new Rectangle();
+    private PlayerStats stats;
     private final PlayerState idleState = new IdleState();
     private final PlayerState runState = new RunState();
     private final PlayerState attackState = new AttackState();
@@ -49,9 +49,9 @@ public class Player {
     public Player() {
         x = (ARENA_WIDTH - SPRITE_WIDTH) / 2f;
         y = (ARENA_HEIGHT - SPRITE_HEIGHT) / 2f;
-        maxHp = 100f;
-        hp = maxHp;
-        attackTimer = ATTACK_COOLDOWN_SECONDS;
+        stats = new BasePlayerStats();
+        hp = stats.getMaxHp();
+        attackTimer = stats.getAttackCooldown();
         currentState = idleState;
         updateBounds();
     }
@@ -73,7 +73,7 @@ public class Player {
 
         attackTimer -= delta;
         if (attackTimer <= 0f) {
-            attackTimer = ATTACK_COOLDOWN_SECONDS;
+            attackTimer = stats.getAttackCooldown();
             performAttack(enemies);
         }
 
@@ -95,10 +95,27 @@ public class Player {
     }
 
     public void takeDamage(float amount) {
-        hp = Math.max(0f, hp - amount);
+        hp = Math.max(0f, hp - (amount * stats.getIncomingDamageMultiplier()));
         if (hp <= 0f) {
             currentState = deadState;
         }
+    }
+
+    public void applyUpgrade(UnaryOperator<PlayerStats> upgradeFactory) {
+        if (upgradeFactory == null) {
+            return;
+        }
+
+        float previousMaxHp = getMaxHp();
+        stats = upgradeFactory.apply(stats);
+        float newMaxHp = getMaxHp();
+
+        if (newMaxHp > previousMaxHp) {
+            hp += newMaxHp - previousMaxHp;
+        }
+
+        hp = MathUtils.clamp(hp, 0f, newMaxHp);
+        attackTimer = Math.min(attackTimer, stats.getAttackCooldown());
     }
 
     public Rectangle getBounds() {
@@ -126,7 +143,7 @@ public class Player {
     }
 
     public float getMaxHp() {
-        return maxHp;
+        return stats.getMaxHp();
     }
 
     public PlayerState getCurrentState() {
@@ -138,7 +155,19 @@ public class Player {
     }
 
     public float getDamage() {
-        return BASE_DAMAGE;
+        return stats.getDamage();
+    }
+
+    public float getSpeed() {
+        return stats.getSpeed();
+    }
+
+    public float getAttackCooldown() {
+        return stats.getAttackCooldown();
+    }
+
+    public float getIncomingDamageMultiplier() {
+        return stats.getIncomingDamageMultiplier();
     }
 
     private void handleMovement(float delta) {
@@ -164,8 +193,8 @@ public class Player {
             moveY /= length;
         }
 
-        velocityX = moveX * BASE_MOVE_SPEED;
-        velocityY = moveY * BASE_MOVE_SPEED;
+        velocityX = moveX * stats.getSpeed();
+        velocityY = moveY * stats.getSpeed();
 
         x += velocityX * delta;
         y += velocityY * delta;
