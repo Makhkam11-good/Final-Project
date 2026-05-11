@@ -92,6 +92,16 @@ public abstract class Enemy {
         return scoreReward;
     }
 
+    public void applyDifficulty(float speedMultiplier, float damageMultiplier) {
+        speed *= speedMultiplier;
+        damage *= damageMultiplier;
+    }
+
+    public void setHp(float hp) {
+        this.hp = hp;
+        this.maxHp = hp;
+    }
+
     public Rectangle getBounds() {
         return bounds;
     }

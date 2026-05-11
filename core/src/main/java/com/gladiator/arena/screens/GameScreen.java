@@ -40,6 +40,8 @@ public class GameScreen extends ScreenAdapter {
     private final List<Enemy> enemies = new ArrayList<>();
     private final EnemyFactory slimeFactory = new SlimeFactory();
     private int score;
+    private int enemiesRemainingToSpawn;
+    private float spawnTimer;
     private boolean disposed;
     private boolean transitioning;
     private boolean playerDeathPosted;
@@ -57,7 +59,7 @@ public class GameScreen extends ScreenAdapter {
         eventBus.subscribe(GameEvent.Type.WAVE_CLEARED, waveClearedListener);
         eventBus.subscribe(GameEvent.Type.PLAYER_DIED, playerDiedListener);
         levelManager.startWave(1, PROTOTYPE_WAVE_ENEMY_COUNT);
-        spawnPrototypeWave();
+        preparePrototypeWaveSpawns();
     }
 
     @Override
@@ -73,6 +75,7 @@ public class GameScreen extends ScreenAdapter {
             return;
         }
 
+        updateSpawning(delta);
         updateEnemies(delta);
         if (transitioning) {
             return;
@@ -112,13 +115,30 @@ public class GameScreen extends ScreenAdapter {
         game.getFont().draw(game.getBatch(), "Wave: " + levelManager.getCurrentWave(), hudX, hudY - (lineHeight * 4f));
         game.getFont().draw(game.getBatch(), "Enemies Alive: " + levelManager.getEnemiesAlive(), hudX, hudY - (lineHeight * 5f));
         game.getFont().draw(game.getBatch(), "Score: " + score, hudX, hudY - (lineHeight * 6f));
+        game.getFont().draw(game.getBatch(), "Spawn Interval: " + gameManager.getDifficulty().getSpawnInterval() + "s", hudX, hudY - (lineHeight * 7f));
         game.getBatch().end();
     }
 
-    private void spawnPrototypeWave() {
+    private void preparePrototypeWaveSpawns() {
         enemies.clear();
-        for (int i = 0; i < PROTOTYPE_WAVE_ENEMY_COUNT; i++) {
+        enemiesRemainingToSpawn = PROTOTYPE_WAVE_ENEMY_COUNT;
+        spawnTimer = 0f;
+    }
+
+    private void updateSpawning(float delta) {
+        if (enemiesRemainingToSpawn <= 0 || transitioning) {
+            return;
+        }
+
+        spawnTimer -= delta;
+        if (spawnTimer > 0f) {
+            return;
+        }
+
+        while (enemiesRemainingToSpawn > 0 && spawnTimer <= 0f) {
             enemies.add(createAtRandomEdge(slimeFactory));
+            enemiesRemainingToSpawn--;
+            spawnTimer += gameManager.getDifficulty().getSpawnInterval();
         }
     }
 
