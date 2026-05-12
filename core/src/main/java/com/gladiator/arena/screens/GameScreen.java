@@ -38,6 +38,10 @@ public class GameScreen extends ScreenAdapter {
     private static final float PROGRESS_BAR_Y = 426f;
     private static final float PROGRESS_BAR_WIDTH = 270f;
     private static final float PROGRESS_BAR_HEIGHT = 12f;
+    private static final float HEALTH_BAR_HEIGHT = 5f;
+    private static final float HEALTH_BAR_OFFSET_Y = 6f;
+    private static final float PLAYER_HEALTH_BAR_WIDTH = 44f;
+    private static final float MIN_ENEMY_HEALTH_BAR_WIDTH = 34f;
 
     private final GladiatorGame game;
     private final GameManager gameManager;
@@ -128,6 +132,7 @@ public class GameScreen extends ScreenAdapter {
         player.render(game.getBatch(), assets);
         game.getBatch().end();
 
+        drawCharacterHealthBars();
         drawAttackEffect();
         drawWaveProgressBar();
 
@@ -148,6 +153,63 @@ public class GameScreen extends ScreenAdapter {
         }
         game.getFont().draw(game.getBatch(), buildWaveProgressText(), PROGRESS_BAR_X, PROGRESS_BAR_Y - 8f);
         game.getBatch().end();
+    }
+
+    private void drawCharacterHealthBars() {
+        shapeRenderer.setProjectionMatrix(game.getBatch().getProjectionMatrix());
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        drawHealthBar(
+            player.getCenterX() - PLAYER_HEALTH_BAR_WIDTH / 2f,
+            player.getY() + Player.SPRITE_HEIGHT + HEALTH_BAR_OFFSET_Y,
+            PLAYER_HEALTH_BAR_WIDTH,
+            player.getHp(),
+            player.getMaxHp(),
+            0.12f,
+            0.9f,
+            0.22f
+        );
+
+        for (Enemy enemy : enemies) {
+            if (enemy.isDead()) {
+                continue;
+            }
+
+            float width = Math.max(MIN_ENEMY_HEALTH_BAR_WIDTH, enemy.getSpriteWidth());
+            drawHealthBar(
+                enemy.getCenterX() - width / 2f,
+                enemy.getY() + enemy.getSpriteHeight() + HEALTH_BAR_OFFSET_Y,
+                width,
+                enemy.getHp(),
+                enemy.getMaxHp(),
+                0.95f,
+                0.18f,
+                0.12f
+            );
+        }
+        shapeRenderer.end();
+    }
+
+    private void drawHealthBar(
+        float x,
+        float y,
+        float width,
+        float hp,
+        float maxHp,
+        float fillRed,
+        float fillGreen,
+        float fillBlue
+    ) {
+        float safeWidth = Math.max(1f, width);
+        float clampedX = MathUtils.clamp(x, 2f, ARENA_WIDTH - safeWidth - 2f);
+        float clampedY = MathUtils.clamp(y, 2f, ARENA_HEIGHT - HEALTH_BAR_HEIGHT - 2f);
+        float percent = maxHp <= 0f ? 0f : MathUtils.clamp(hp / maxHp, 0f, 1f);
+
+        shapeRenderer.setColor(0f, 0f, 0f, 0.95f);
+        shapeRenderer.rect(clampedX - 1f, clampedY - 1f, safeWidth + 2f, HEALTH_BAR_HEIGHT + 2f);
+        shapeRenderer.setColor(0.28f, 0.04f, 0.04f, 1f);
+        shapeRenderer.rect(clampedX, clampedY, safeWidth, HEALTH_BAR_HEIGHT);
+        shapeRenderer.setColor(fillRed, fillGreen, fillBlue, 1f);
+        shapeRenderer.rect(clampedX, clampedY, safeWidth * percent, HEALTH_BAR_HEIGHT);
     }
 
     private void drawAttackEffect() {

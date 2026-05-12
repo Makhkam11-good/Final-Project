@@ -121,12 +121,28 @@ public abstract class Enemy {
         return bounds;
     }
 
+    public float getX() {
+        return x;
+    }
+
+    public float getY() {
+        return y;
+    }
+
     public float getCenterX() {
         return x + spriteWidth / 2f;
     }
 
     public float getCenterY() {
         return y + spriteHeight / 2f;
+    }
+
+    public float getSpriteWidth() {
+        return spriteWidth;
+    }
+
+    public float getSpriteHeight() {
+        return spriteHeight;
     }
 
     public void moveToward(float targetX, float targetY, float delta, float moveSpeed) {

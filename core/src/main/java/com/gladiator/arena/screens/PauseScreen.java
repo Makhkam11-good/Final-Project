@@ -26,6 +26,10 @@ public class PauseScreen extends ScreenAdapter {
     @Override
     public void render(float delta) {
         handleInput();
+        if (disposed) {
+            return;
+        }
+
         ScreenUtils.clear(0.18f, 0.1f, 0.22f, 1f);
 
         shapeRenderer.setProjectionMatrix(game.getBatch().getProjectionMatrix());
