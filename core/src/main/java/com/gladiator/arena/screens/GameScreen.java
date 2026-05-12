@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.gladiator.arena.GladiatorGame;
+import com.gladiator.arena.entities.Boss;
 import com.gladiator.arena.entities.Enemy;
 import com.gladiator.arena.entities.Player;
 import com.gladiator.arena.events.EventBus;
@@ -38,6 +39,7 @@ public class GameScreen extends ScreenAdapter {
     private final LevelManager levelManager;
     private final EventListener waveClearedListener;
     private final EventListener playerDiedListener;
+    private final EventListener bossDiedListener;
     private final Player player;
     private final ShapeRenderer shapeRenderer;
     private final List<Enemy> enemies = new ArrayList<>();
@@ -45,6 +47,7 @@ public class GameScreen extends ScreenAdapter {
     private final EnemyFactory slimeFactory = new SlimeFactory();
     private final EnemyFactory goblinFactory = new GoblinFactory();
     private final EnemyFactory bossFactory = new BossFactory();
+    private Boss activeBoss;
     private int score;
     private int enemiesRemainingToSpawn;
     private float spawnTimer;
@@ -63,12 +66,14 @@ public class GameScreen extends ScreenAdapter {
         this.levelManager = new LevelManager(eventBus);
         this.waveClearedListener = this::handleWaveCleared;
         this.playerDiedListener = this::handlePlayerDied;
+        this.bossDiedListener = this::handleBossDied;
         this.player = player == null ? new Player() : player;
         this.shapeRenderer = new ShapeRenderer();
         this.score = score;
 
         eventBus.subscribe(GameEvent.Type.WAVE_CLEARED, waveClearedListener);
         eventBus.subscribe(GameEvent.Type.PLAYER_DIED, playerDiedListener);
+        eventBus.subscribe(GameEvent.Type.BOSS_DIED, bossDiedListener);
         int safeWaveNumber = Math.max(1, Math.min(waveNumber, FINAL_WAVE));
         int enemiesInWave = prepareWaveSpawns(safeWaveNumber);
         levelManager.startWave(safeWaveNumber, enemiesInWave);
@@ -114,6 +119,7 @@ public class GameScreen extends ScreenAdapter {
             enemy.render(shapeRenderer);
         }
         player.render(shapeRenderer);
+        renderBossHpBar();
         shapeRenderer.end();
 
         float hudX = 16f;
@@ -135,6 +141,7 @@ public class GameScreen extends ScreenAdapter {
     private int prepareWaveSpawns(int waveNumber) {
         enemies.clear();
         pendingSpawnFactories.clear();
+        activeBoss = null;
 
         if (waveNumber == 1) {
             addPendingEnemies(slimeFactory, 4);
@@ -159,7 +166,11 @@ public class GameScreen extends ScreenAdapter {
         } else if (waveNumber == 9) {
             addPendingEnemies(goblinFactory, 12);
         } else {
-            addPendingEnemies(bossFactory, 1);
+            activeBoss = createBossAtEdgeCenter();
+            enemies.add(activeBoss);
+            enemiesRemainingToSpawn = 0;
+            spawnTimer = 0f;
+            return enemies.size();
         }
 
         Collections.shuffle(pendingSpawnFactories);
@@ -213,11 +224,34 @@ public class GameScreen extends ScreenAdapter {
 
             score += enemy.getScoreReward();
             iterator.remove();
+            if (enemy == activeBoss) {
+                activeBoss = null;
+            }
+            if (enemy instanceof Boss) {
+                eventBus.post(new GameEvent(GameEvent.Type.BOSS_DIED, enemy));
+                if (transitioning) {
+                    return;
+                }
+                continue;
+            }
+
             eventBus.post(GameEvent.Type.ENEMY_DIED);
             if (transitioning) {
                 return;
             }
         }
+    }
+
+    private void renderBossHpBar() {
+        if (activeBoss == null || activeBoss.isDead()) {
+            return;
+        }
+
+        float hpPercent = MathUtils.clamp(activeBoss.getHp() / activeBoss.getMaxHp(), 0f, 1f);
+        shapeRenderer.setColor(0.05f, 0.05f, 0.05f, 1f);
+        shapeRenderer.rect(200f, 10f, 400f, 16f);
+        shapeRenderer.setColor(0.55f, 0f, 0f, 1f);
+        shapeRenderer.rect(200f, 10f, hpPercent * 400f, 16f);
     }
 
     private Enemy createAtRandomEdge(EnemyFactory factory) {
@@ -232,6 +266,15 @@ public class GameScreen extends ScreenAdapter {
             return factory.create(0f, MathUtils.random(0f, ARENA_HEIGHT - DEFAULT_ENEMY_HEIGHT));
         }
         return factory.create(ARENA_WIDTH - DEFAULT_ENEMY_WIDTH, MathUtils.random(0f, ARENA_HEIGHT - DEFAULT_ENEMY_HEIGHT));
+    }
+
+    private Boss createBossAtEdgeCenter() {
+        Enemy enemy = bossFactory.create(ARENA_WIDTH - Boss.SPRITE_WIDTH, (ARENA_HEIGHT - Boss.SPRITE_HEIGHT) / 2f);
+        if (enemy instanceof Boss) {
+            return (Boss) enemy;
+        }
+
+        throw new IllegalStateException("BossFactory must create a Boss instance.");
     }
 
     private void handleWaveCleared(GameEvent event) {
@@ -265,6 +308,16 @@ public class GameScreen extends ScreenAdapter {
         dispose();
     }
 
+    private void handleBossDied(GameEvent event) {
+        if (transitioning) {
+            return;
+        }
+
+        transitioning = true;
+        game.setScreen(new VictoryScreen(game));
+        dispose();
+    }
+
     @Override
     public void dispose() {
         if (disposed) {
@@ -273,6 +326,7 @@ public class GameScreen extends ScreenAdapter {
         disposed = true;
         eventBus.unsubscribe(GameEvent.Type.WAVE_CLEARED, waveClearedListener);
         eventBus.unsubscribe(GameEvent.Type.PLAYER_DIED, playerDiedListener);
+        eventBus.unsubscribe(GameEvent.Type.BOSS_DIED, bossDiedListener);
         levelManager.dispose();
         shapeRenderer.dispose();
     }
