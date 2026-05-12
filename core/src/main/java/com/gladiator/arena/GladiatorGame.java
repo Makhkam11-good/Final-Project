@@ -3,6 +3,7 @@ package com.gladiator.arena;
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.gladiator.arena.managers.AssetManager;
 import com.gladiator.arena.screens.MenuScreen;
 
 public class GladiatorGame extends Game {
@@ -13,6 +14,7 @@ public class GladiatorGame extends Game {
     public void create() {
         batch = new SpriteBatch();
         font = new BitmapFont();
+        AssetManager.getInstance().loadGameAssets();
         setScreen(new MenuScreen(this));
     }
 
@@ -36,5 +38,6 @@ public class GladiatorGame extends Game {
         }
         batch.dispose();
         font.dispose();
+        AssetManager.getInstance().dispose();
     }
 }

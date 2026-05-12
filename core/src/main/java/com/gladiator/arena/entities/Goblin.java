@@ -36,4 +36,9 @@ public class Goblin extends Enemy {
 
         moveToward(player.getX() + Player.SPRITE_WIDTH / 2f, player.getY() + Player.SPRITE_HEIGHT / 2f, delta, speed);
     }
+
+    @Override
+    protected String getSpriteKey() {
+        return "goblin";
+    }
 }

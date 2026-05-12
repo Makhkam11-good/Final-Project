@@ -3,7 +3,6 @@ package com.gladiator.arena.screens;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.ScreenAdapter;
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.gladiator.arena.GladiatorGame;
@@ -17,6 +16,7 @@ import com.gladiator.arena.factories.BossFactory;
 import com.gladiator.arena.factories.EnemyFactory;
 import com.gladiator.arena.factories.GoblinFactory;
 import com.gladiator.arena.factories.SlimeFactory;
+import com.gladiator.arena.managers.AssetManager;
 import com.gladiator.arena.managers.GameManager;
 import com.gladiator.arena.managers.GameStateManager;
 import com.gladiator.arena.managers.LevelManager;
@@ -37,11 +37,11 @@ public class GameScreen extends ScreenAdapter {
     private final GameManager gameManager;
     private final EventBus eventBus;
     private final LevelManager levelManager;
+    private final AssetManager assets;
     private final EventListener waveClearedListener;
     private final EventListener playerDiedListener;
     private final EventListener bossDiedListener;
     private final Player player;
-    private final ShapeRenderer shapeRenderer;
     private final List<Enemy> enemies = new ArrayList<>();
     private final List<EnemyFactory> pendingSpawnFactories = new ArrayList<>();
     private final EnemyFactory slimeFactory = new SlimeFactory();
@@ -64,11 +64,11 @@ public class GameScreen extends ScreenAdapter {
         this.gameManager = GameManager.getInstance();
         this.eventBus = EventBus.getInstance();
         this.levelManager = new LevelManager(eventBus);
+        this.assets = AssetManager.getInstance();
         this.waveClearedListener = this::handleWaveCleared;
         this.playerDiedListener = this::handlePlayerDied;
         this.bossDiedListener = this::handleBossDied;
         this.player = player == null ? new Player() : player;
-        this.shapeRenderer = new ShapeRenderer();
         this.score = score;
 
         eventBus.subscribe(GameEvent.Type.WAVE_CLEARED, waveClearedListener);
@@ -112,29 +112,28 @@ public class GameScreen extends ScreenAdapter {
             }
         }
 
-        ScreenUtils.clear(0.1f, 0.1f, 0.1f, 1f);
-        shapeRenderer.setProjectionMatrix(game.getBatch().getProjectionMatrix());
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        ScreenUtils.clear(0.08f, 0.07f, 0.06f, 1f);
+        game.getBatch().begin();
+        assets.drawTiledFloor(game.getBatch(), ARENA_WIDTH, ARENA_HEIGHT);
         for (Enemy enemy : enemies) {
-            enemy.render(shapeRenderer);
+            enemy.render(game.getBatch(), assets);
         }
-        player.render(shapeRenderer);
-        renderBossHpBar();
-        shapeRenderer.end();
+        player.render(game.getBatch(), assets);
 
         float hudX = 16f;
         float hudY = 464f;
-        float lineHeight = 24f;
-        game.getBatch().begin();
-        game.getFont().draw(game.getBatch(), "Difficulty: " + gameManager.getDifficultyName(), hudX, hudY);
-        game.getFont().draw(game.getBatch(), "Press ESC to pause", hudX, hudY - lineHeight);
-        game.getFont().draw(game.getBatch(), "Player State: " + player.getCurrentState().getName(), hudX, hudY - (lineHeight * 2f));
-        game.getFont().draw(game.getBatch(), "HP: " + (int) player.getHp() + "/" + (int) player.getMaxHp(), hudX, hudY - (lineHeight * 3f));
-        game.getFont().draw(game.getBatch(), "Wave: " + levelManager.getCurrentWave(), hudX, hudY - (lineHeight * 4f));
-        game.getFont().draw(game.getBatch(), "Enemies Alive: " + levelManager.getEnemiesAlive(), hudX, hudY - (lineHeight * 5f));
-        game.getFont().draw(game.getBatch(), "Score: " + score, hudX, hudY - (lineHeight * 6f));
-        game.getFont().draw(game.getBatch(), "Spawn Interval: " + gameManager.getDifficulty().getSpawnInterval() + "s", hudX, hudY - (lineHeight * 7f));
-        game.getFont().draw(game.getBatch(), "DMG: " + (int) player.getDamage() + "  SPD: " + (int) player.getSpeed() + "  CD: " + player.getAttackCooldown() + "s", hudX, hudY - (lineHeight * 8f));
+        String hud = "HP: " + (int) player.getHp() + "/" + (int) player.getMaxHp()
+            + " | Wave: " + levelManager.getCurrentWave()
+            + " | Score: " + score
+            + " | Difficulty: " + gameManager.getDifficultyName()
+            + " | ESC Pause";
+        game.getFont().draw(game.getBatch(), hud, hudX, hudY);
+        if (activeBoss != null && !activeBoss.isDead()) {
+            float bossHpPercent = MathUtils.clamp(activeBoss.getHp() / activeBoss.getMaxHp(), 0f, 1f);
+            game.getFont().draw(game.getBatch(), "Boss HP: " + (int) activeBoss.getHp()
+                + "/" + (int) activeBoss.getMaxHp()
+                + " (" + (int) (bossHpPercent * 100f) + "%)", 300f, 28f);
+        }
         game.getBatch().end();
     }
 
@@ -242,18 +241,6 @@ public class GameScreen extends ScreenAdapter {
         }
     }
 
-    private void renderBossHpBar() {
-        if (activeBoss == null || activeBoss.isDead()) {
-            return;
-        }
-
-        float hpPercent = MathUtils.clamp(activeBoss.getHp() / activeBoss.getMaxHp(), 0f, 1f);
-        shapeRenderer.setColor(0.05f, 0.05f, 0.05f, 1f);
-        shapeRenderer.rect(200f, 10f, 400f, 16f);
-        shapeRenderer.setColor(0.55f, 0f, 0f, 1f);
-        shapeRenderer.rect(200f, 10f, hpPercent * 400f, 16f);
-    }
-
     private Enemy createAtRandomEdge(EnemyFactory factory) {
         int edge = MathUtils.random(3);
         if (edge == 0) {
@@ -328,6 +315,5 @@ public class GameScreen extends ScreenAdapter {
         eventBus.unsubscribe(GameEvent.Type.PLAYER_DIED, playerDiedListener);
         eventBus.unsubscribe(GameEvent.Type.BOSS_DIED, bossDiedListener);
         levelManager.dispose();
-        shapeRenderer.dispose();
     }
 }

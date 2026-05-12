@@ -1,12 +1,13 @@
 package com.gladiator.arena.entities;
 
 import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.gladiator.arena.events.EventBus;
 import com.gladiator.arena.events.GameEvent;
+import com.gladiator.arena.managers.AssetManager;
 
 public abstract class Enemy {
     protected static final float ARENA_WIDTH = 800f;
@@ -27,6 +28,7 @@ public abstract class Enemy {
     protected float hitboxHeight;
     protected int scoreReward;
     protected Color renderColor;
+    protected float stateTime;
 
     protected Enemy(
         float x,
@@ -65,6 +67,7 @@ public abstract class Enemy {
     }
 
     public void update(float delta, Player player) {
+        stateTime += delta;
         updateMovement(delta, player);
         clampToArena();
         updateBounds();
@@ -75,9 +78,9 @@ public abstract class Enemy {
         }
     }
 
-    public void render(ShapeRenderer shapeRenderer) {
-        shapeRenderer.setColor(renderColor);
-        shapeRenderer.rect(x, y, spriteWidth, spriteHeight);
+    public void render(SpriteBatch batch, AssetManager assets) {
+        String animationState = isDead() ? "dead" : "run";
+        assets.drawAnimation(batch, getSpriteKey() + "." + animationState, stateTime, x, y, spriteWidth, spriteHeight);
     }
 
     public void takeDamage(float amount) {
@@ -151,4 +154,6 @@ public abstract class Enemy {
     protected abstract void onWaveSpawn();
 
     protected abstract void updateMovement(float delta, Player player);
+
+    protected abstract String getSpriteKey();
 }

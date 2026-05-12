@@ -52,6 +52,7 @@ public class Boss extends Enemy {
 
     @Override
     public void update(float delta, Player player) {
+        stateTime += delta;
         if (player == null || isDead()) {
             return;
         }
@@ -133,5 +134,10 @@ public class Boss extends Enemy {
 
     @Override
     protected void updateMovement(float delta, Player player) {
+    }
+
+    @Override
+    protected String getSpriteKey() {
+        return "boss";
     }
 }

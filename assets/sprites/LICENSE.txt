@@ -1,0 +1,3 @@
+Original pixel art created for this student project.
+License: CC0-1.0 / public domain dedication for project use.
+Generated locally on 2026-05-12; no external sprite sources used.

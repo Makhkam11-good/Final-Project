@@ -54,6 +54,11 @@ public class Slime extends Enemy {
         }
     }
 
+    @Override
+    protected String getSpriteKey() {
+        return "slime";
+    }
+
     private void pickWanderDirection() {
         float angle = MathUtils.random(0f, MathUtils.PI2);
         wanderX = MathUtils.cos(angle);

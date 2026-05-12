@@ -2,11 +2,11 @@ package com.gladiator.arena.entities;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
-import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
+import com.gladiator.arena.managers.AssetManager;
 import com.gladiator.arena.entities.states.AttackState;
 import com.gladiator.arena.entities.states.DeadState;
 import com.gladiator.arena.entities.states.IdleState;
@@ -37,6 +37,7 @@ public class Player {
     private float hp;
     private float attackTimer;
     private float attackStateTimer;
+    private float stateTime;
 
     private final Rectangle bounds = new Rectangle();
     private PlayerStats stats;
@@ -61,10 +62,11 @@ public class Player {
     }
 
     public void update(float delta, List<Enemy> enemies) {
+        stateTime += delta;
         if (isDead()) {
             velocityX = 0f;
             velocityY = 0f;
-            currentState = deadState;
+            setCurrentState(deadState);
             updateBounds();
             return;
         }
@@ -79,25 +81,24 @@ public class Player {
 
         updateAttackStateTimer(delta);
         if (attackStateTimer > 0f) {
-            currentState = attackState;
+            setCurrentState(attackState);
         } else if (MathUtils.isZero(velocityX) && MathUtils.isZero(velocityY)) {
-            currentState = idleState;
+            setCurrentState(idleState);
         } else {
-            currentState = runState;
+            setCurrentState(runState);
         }
 
         updateBounds();
     }
 
-    public void render(ShapeRenderer shapeRenderer) {
-        shapeRenderer.setColor(Color.WHITE);
-        shapeRenderer.rect(x, y, SPRITE_WIDTH, SPRITE_HEIGHT);
+    public void render(SpriteBatch batch, AssetManager assets) {
+        assets.drawAnimation(batch, "player." + getAnimationState(), stateTime, x, y, SPRITE_WIDTH, SPRITE_HEIGHT);
     }
 
     public void takeDamage(float amount) {
         hp = Math.max(0f, hp - (amount * stats.getIncomingDamageMultiplier()));
         if (hp <= 0f) {
-            currentState = deadState;
+            setCurrentState(deadState);
         }
     }
 
@@ -221,6 +222,29 @@ public class Player {
 
     private void updateBounds() {
         bounds.set(x + HITBOX_OFFSET_X, y + HITBOX_OFFSET_Y, HITBOX_WIDTH, HITBOX_HEIGHT);
+    }
+
+    private void setCurrentState(PlayerState nextState) {
+        if (currentState == nextState) {
+            return;
+        }
+
+        currentState = nextState;
+        stateTime = 0f;
+    }
+
+    private String getAnimationState() {
+        String stateName = currentState.getName().toLowerCase();
+        if ("dead".equals(stateName)) {
+            return "dead";
+        }
+        if ("attack".equals(stateName)) {
+            return "attack";
+        }
+        if ("run".equals(stateName)) {
+            return "run";
+        }
+        return "idle";
     }
 
     private boolean isDead() {

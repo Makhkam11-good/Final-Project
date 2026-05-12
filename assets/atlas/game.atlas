@@ -1,0 +1,376 @@
+game.png
+size: 512,512
+format: RGBA8888
+filter: Nearest,Nearest
+repeat: none
+knight_idle
+  rotate: false
+  xy: 0, 0
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 0
+knight_idle
+  rotate: false
+  xy: 48, 0
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 1
+knight_idle
+  rotate: false
+  xy: 96, 0
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 2
+knight_idle
+  rotate: false
+  xy: 144, 0
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 3
+knight_run
+  rotate: false
+  xy: 192, 0
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 0
+knight_run
+  rotate: false
+  xy: 240, 0
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 1
+knight_run
+  rotate: false
+  xy: 288, 0
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 2
+knight_run
+  rotate: false
+  xy: 336, 0
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 3
+knight_attack
+  rotate: false
+  xy: 384, 0
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 0
+knight_attack
+  rotate: false
+  xy: 432, 0
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 1
+knight_attack
+  rotate: false
+  xy: 480, 0
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 2
+knight_attack
+  rotate: false
+  xy: 528, 0
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 3
+knight_death
+  rotate: false
+  xy: 576, 0
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 0
+knight_death
+  rotate: false
+  xy: 624, 0
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 1
+knight_death
+  rotate: false
+  xy: 672, 0
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 2
+knight_death
+  rotate: false
+  xy: 720, 0
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 3
+slime_walk
+  rotate: false
+  xy: 0, 64
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 0
+slime_walk
+  rotate: false
+  xy: 32, 64
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 1
+slime_walk
+  rotate: false
+  xy: 64, 64
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 2
+slime_walk
+  rotate: false
+  xy: 96, 64
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 3
+slime_attack
+  rotate: false
+  xy: 128, 64
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 0
+slime_attack
+  rotate: false
+  xy: 160, 64
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 1
+slime_attack
+  rotate: false
+  xy: 192, 64
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 2
+slime_attack
+  rotate: false
+  xy: 224, 64
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 3
+slime_death
+  rotate: false
+  xy: 256, 64
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 0
+slime_death
+  rotate: false
+  xy: 288, 64
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 1
+slime_death
+  rotate: false
+  xy: 320, 64
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 2
+slime_death
+  rotate: false
+  xy: 352, 64
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 3
+goblin_walk
+  rotate: false
+  xy: 0, 112
+  size: 32, 48
+  orig: 32, 48
+  offset: 0, 0
+  index: 0
+goblin_walk
+  rotate: false
+  xy: 32, 112
+  size: 32, 48
+  orig: 32, 48
+  offset: 0, 0
+  index: 1
+goblin_walk
+  rotate: false
+  xy: 64, 112
+  size: 32, 48
+  orig: 32, 48
+  offset: 0, 0
+  index: 2
+goblin_walk
+  rotate: false
+  xy: 96, 112
+  size: 32, 48
+  orig: 32, 48
+  offset: 0, 0
+  index: 3
+goblin_attack
+  rotate: false
+  xy: 128, 112
+  size: 32, 48
+  orig: 32, 48
+  offset: 0, 0
+  index: 0
+goblin_attack
+  rotate: false
+  xy: 160, 112
+  size: 32, 48
+  orig: 32, 48
+  offset: 0, 0
+  index: 1
+goblin_attack
+  rotate: false
+  xy: 192, 112
+  size: 32, 48
+  orig: 32, 48
+  offset: 0, 0
+  index: 2
+goblin_attack
+  rotate: false
+  xy: 224, 112
+  size: 32, 48
+  orig: 32, 48
+  offset: 0, 0
+  index: 3
+goblin_death
+  rotate: false
+  xy: 256, 112
+  size: 32, 48
+  orig: 32, 48
+  offset: 0, 0
+  index: 0
+goblin_death
+  rotate: false
+  xy: 288, 112
+  size: 32, 48
+  orig: 32, 48
+  offset: 0, 0
+  index: 1
+goblin_death
+  rotate: false
+  xy: 320, 112
+  size: 32, 48
+  orig: 32, 48
+  offset: 0, 0
+  index: 2
+goblin_death
+  rotate: false
+  xy: 352, 112
+  size: 32, 48
+  orig: 32, 48
+  offset: 0, 0
+  index: 3
+boss_walk
+  rotate: false
+  xy: 0, 176
+  size: 96, 96
+  orig: 96, 96
+  offset: 0, 0
+  index: 0
+boss_walk
+  rotate: false
+  xy: 96, 176
+  size: 96, 96
+  orig: 96, 96
+  offset: 0, 0
+  index: 1
+boss_walk
+  rotate: false
+  xy: 192, 176
+  size: 96, 96
+  orig: 96, 96
+  offset: 0, 0
+  index: 2
+boss_walk
+  rotate: false
+  xy: 288, 176
+  size: 96, 96
+  orig: 96, 96
+  offset: 0, 0
+  index: 3
+boss_attack
+  rotate: false
+  xy: 384, 176
+  size: 96, 96
+  orig: 96, 96
+  offset: 0, 0
+  index: 0
+boss_attack
+  rotate: false
+  xy: 480, 176
+  size: 96, 96
+  orig: 96, 96
+  offset: 0, 0
+  index: 1
+boss_attack
+  rotate: false
+  xy: 576, 176
+  size: 96, 96
+  orig: 96, 96
+  offset: 0, 0
+  index: 2
+boss_attack
+  rotate: false
+  xy: 672, 176
+  size: 96, 96
+  orig: 96, 96
+  offset: 0, 0
+  index: 3
+boss_death
+  rotate: false
+  xy: 768, 176
+  size: 96, 96
+  orig: 96, 96
+  offset: 0, 0
+  index: 0
+boss_death
+  rotate: false
+  xy: 864, 176
+  size: 96, 96
+  orig: 96, 96
+  offset: 0, 0
+  index: 1
+boss_death
+  rotate: false
+  xy: 960, 176
+  size: 96, 96
+  orig: 96, 96
+  offset: 0, 0
+  index: 2
+boss_death
+  rotate: false
+  xy: 1056, 176
+  size: 96, 96
+  orig: 96, 96
+  offset: 0, 0
+  index: 3
+arena_floor
+  rotate: false
+  xy: 0, 288
+  size: 64, 64
+  orig: 64, 64
+  offset: 0, 0
+  index: 0
