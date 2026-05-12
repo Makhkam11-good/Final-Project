@@ -72,6 +72,19 @@ public class LevelManager {
         return enemiesKilledThisWave;
     }
 
+    public int getEnemiesTotalThisWave() {
+        return enemiesAlive + enemiesKilledThisWave;
+    }
+
+    public float getWaveProgress() {
+        int totalEnemies = getEnemiesTotalThisWave();
+        if (totalEnemies <= 0) {
+            return 1f;
+        }
+
+        return enemiesKilledThisWave / (float) totalEnemies;
+    }
+
     public boolean isWaveActive() {
         return waveActive;
     }

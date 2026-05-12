@@ -3,6 +3,8 @@ package com.gladiator.arena.screens;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.ScreenAdapter;
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.gladiator.arena.GladiatorGame;
@@ -32,6 +34,10 @@ public class GameScreen extends ScreenAdapter {
     private static final float ARENA_HEIGHT = 480f;
     private static final float DEFAULT_ENEMY_WIDTH = 32f;
     private static final float DEFAULT_ENEMY_HEIGHT = 32f;
+    private static final float PROGRESS_BAR_X = 16f;
+    private static final float PROGRESS_BAR_Y = 426f;
+    private static final float PROGRESS_BAR_WIDTH = 270f;
+    private static final float PROGRESS_BAR_HEIGHT = 12f;
 
     private final GladiatorGame game;
     private final GameManager gameManager;
@@ -47,6 +53,7 @@ public class GameScreen extends ScreenAdapter {
     private final EnemyFactory slimeFactory = new SlimeFactory();
     private final EnemyFactory goblinFactory = new GoblinFactory();
     private final EnemyFactory bossFactory = new BossFactory();
+    private final ShapeRenderer shapeRenderer = new ShapeRenderer();
     private Boss activeBoss;
     private int score;
     private int enemiesRemainingToSpawn;
@@ -119,7 +126,12 @@ public class GameScreen extends ScreenAdapter {
             enemy.render(game.getBatch(), assets);
         }
         player.render(game.getBatch(), assets);
+        game.getBatch().end();
 
+        drawAttackEffect();
+        drawWaveProgressBar();
+
+        game.getBatch().begin();
         float hudX = 16f;
         float hudY = 464f;
         String hud = "HP: " + (int) player.getHp() + "/" + (int) player.getMaxHp()
@@ -134,7 +146,67 @@ public class GameScreen extends ScreenAdapter {
                 + "/" + (int) activeBoss.getMaxHp()
                 + " (" + (int) (bossHpPercent * 100f) + "%)", 300f, 28f);
         }
+        game.getFont().draw(game.getBatch(), buildWaveProgressText(), PROGRESS_BAR_X, PROGRESS_BAR_Y - 8f);
         game.getBatch().end();
+    }
+
+    private void drawAttackEffect() {
+        if (!player.isAttackEffectActive()) {
+            return;
+        }
+
+        float progress = player.getAttackEffectProgress();
+        float width = 4f + progress * 8f;
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapeRenderer.setProjectionMatrix(game.getBatch().getProjectionMatrix());
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(1f, 0.75f, 0.12f, 0.22f * progress);
+        shapeRenderer.circle(player.getAttackStartX(), player.getAttackStartY(), 22f + (1f - progress) * 10f);
+        shapeRenderer.setColor(1f, 0.92f, 0.32f, 0.9f * progress);
+        shapeRenderer.rectLine(
+            player.getAttackStartX(),
+            player.getAttackStartY(),
+            player.getAttackEndX(),
+            player.getAttackEndY(),
+            width
+        );
+        shapeRenderer.setColor(1f, 0.98f, 0.62f, 0.85f * progress);
+        shapeRenderer.circle(player.getAttackEndX(), player.getAttackEndY(), 5f + progress * 5f);
+        shapeRenderer.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
+    private void drawWaveProgressBar() {
+        float progress = getWaveProgress();
+        shapeRenderer.setProjectionMatrix(game.getBatch().getProjectionMatrix());
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0.02f, 0.02f, 0.02f, 0.95f);
+        shapeRenderer.rect(PROGRESS_BAR_X - 2f, PROGRESS_BAR_Y - 2f, PROGRESS_BAR_WIDTH + 4f, PROGRESS_BAR_HEIGHT + 4f);
+        shapeRenderer.setColor(0.19f, 0.16f, 0.12f, 1f);
+        shapeRenderer.rect(PROGRESS_BAR_X, PROGRESS_BAR_Y, PROGRESS_BAR_WIDTH, PROGRESS_BAR_HEIGHT);
+        shapeRenderer.setColor(0.9f, 0.55f, 0.18f, 1f);
+        shapeRenderer.rect(PROGRESS_BAR_X, PROGRESS_BAR_Y, PROGRESS_BAR_WIDTH * progress, PROGRESS_BAR_HEIGHT);
+        shapeRenderer.setColor(1f, 0.86f, 0.38f, 1f);
+        shapeRenderer.rect(PROGRESS_BAR_X, PROGRESS_BAR_Y + PROGRESS_BAR_HEIGHT - 3f, PROGRESS_BAR_WIDTH * progress, 3f);
+        shapeRenderer.end();
+    }
+
+    private float getWaveProgress() {
+        if (activeBoss != null && activeBoss.getMaxHp() > 0f) {
+            return MathUtils.clamp(1f - activeBoss.getHp() / activeBoss.getMaxHp(), 0f, 1f);
+        }
+
+        return MathUtils.clamp(levelManager.getWaveProgress(), 0f, 1f);
+    }
+
+    private String buildWaveProgressText() {
+        if (activeBoss != null && activeBoss.getMaxHp() > 0f) {
+            return "Wave Progress: Boss " + (int) (getWaveProgress() * 100f) + "%";
+        }
+
+        int totalEnemies = levelManager.getEnemiesTotalThisWave();
+        return "Wave Progress: " + levelManager.getEnemiesKilledThisWave() + "/" + totalEnemies;
     }
 
     private int prepareWaveSpawns(int waveNumber) {
@@ -315,5 +387,6 @@ public class GameScreen extends ScreenAdapter {
         eventBus.unsubscribe(GameEvent.Type.PLAYER_DIED, playerDiedListener);
         eventBus.unsubscribe(GameEvent.Type.BOSS_DIED, bossDiedListener);
         levelManager.dispose();
+        shapeRenderer.dispose();
     }
 }

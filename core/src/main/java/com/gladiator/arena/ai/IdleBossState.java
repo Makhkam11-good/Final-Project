@@ -1,4 +1,4 @@
-package com.gladiator.arena.entities.boss;
+package com.gladiator.arena.ai;
 
 import com.gladiator.arena.entities.Boss;
 

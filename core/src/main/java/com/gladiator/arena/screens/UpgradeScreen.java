@@ -6,6 +6,7 @@ import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.gladiator.arena.GladiatorGame;
 import com.gladiator.arena.decorator.ArmorDecorator;
@@ -129,10 +130,9 @@ public class UpgradeScreen extends ScreenAdapter {
             return;
         }
 
-        float touchX = Gdx.input.getX();
-        float touchY = Gdx.graphics.getHeight() - Gdx.input.getY();
+        Vector2 touch = game.screenToWorld(Gdx.input.getX(), Gdx.input.getY());
         for (int i = 0; i < cardBounds.size(); i++) {
-            if (cardBounds.get(i).contains(touchX, touchY)) {
+            if (cardBounds.get(i).contains(touch.x, touch.y)) {
                 applyCard(i);
                 return;
             }

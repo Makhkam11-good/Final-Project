@@ -1,10 +1,10 @@
 package com.gladiator.arena.entities;
 
 import com.badlogic.gdx.graphics.Color;
-import com.gladiator.arena.entities.boss.BossState;
-import com.gladiator.arena.entities.boss.ChaseBossState;
-import com.gladiator.arena.entities.boss.DashBossState;
-import com.gladiator.arena.entities.boss.IdleBossState;
+import com.gladiator.arena.ai.BossState;
+import com.gladiator.arena.ai.ChaseBossState;
+import com.gladiator.arena.ai.DashBossState;
+import com.gladiator.arena.ai.IdleBossState;
 import com.gladiator.arena.events.EventBus;
 import com.gladiator.arena.events.GameEvent;
 
@@ -58,8 +58,8 @@ public class Boss extends Enemy {
         }
 
         targetPlayer = player;
-        float playerX = player.getX() + Player.SPRITE_WIDTH / 2f;
-        float playerY = player.getY() + Player.SPRITE_HEIGHT / 2f;
+        float playerX = player.getCenterX();
+        float playerY = player.getCenterY();
         currentState.update(delta, playerX, playerY);
         finishStateStep();
     }
@@ -102,11 +102,6 @@ public class Boss extends Enemy {
 
     public void moveTowardTarget(float targetX, float targetY, float delta, float moveSpeed) {
         moveToward(targetX, targetY, delta, moveSpeed);
-    }
-
-    public void moveBy(float deltaX, float deltaY) {
-        x += deltaX;
-        y += deltaY;
     }
 
     public void finishStateStep() {

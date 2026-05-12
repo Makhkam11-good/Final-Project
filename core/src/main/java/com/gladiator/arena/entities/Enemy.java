@@ -103,6 +103,10 @@ public abstract class Enemy {
         return maxHp;
     }
 
+    public float getSpeed() {
+        return speed;
+    }
+
     public void applyDifficulty(float speedMultiplier, float damageMultiplier) {
         speed *= speedMultiplier;
         damage *= damageMultiplier;
@@ -125,7 +129,7 @@ public abstract class Enemy {
         return y + spriteHeight / 2f;
     }
 
-    protected void moveToward(float targetX, float targetY, float delta, float moveSpeed) {
+    public void moveToward(float targetX, float targetY, float delta, float moveSpeed) {
         Vector2 direction = new Vector2(targetX - getCenterX(), targetY - getCenterY());
         if (direction.isZero(0.001f)) {
             return;
@@ -136,10 +140,17 @@ public abstract class Enemy {
         y += direction.y * moveSpeed * delta;
     }
 
-    protected float distanceTo(Player player) {
-        float playerCenterX = player.getX() + Player.SPRITE_WIDTH / 2f;
-        float playerCenterY = player.getY() + Player.SPRITE_HEIGHT / 2f;
-        return Vector2.dst(getCenterX(), getCenterY(), playerCenterX, playerCenterY);
+    public void moveBy(float deltaX, float deltaY) {
+        x += deltaX;
+        y += deltaY;
+    }
+
+    public float distanceTo(Player player) {
+        return Vector2.dst(getCenterX(), getCenterY(), player.getCenterX(), player.getCenterY());
+    }
+
+    public boolean isTouchingArenaEdge() {
+        return x <= 0f || x >= ARENA_WIDTH - spriteWidth || y <= 0f || y >= ARENA_HEIGHT - spriteHeight;
     }
 
     protected void updateBounds() {

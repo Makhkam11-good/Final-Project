@@ -1,4 +1,4 @@
-package com.gladiator.arena.entities.boss;
+package com.gladiator.arena.ai;
 
 public interface BossState {
     void enter();

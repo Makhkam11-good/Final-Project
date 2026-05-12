@@ -1,9 +1,11 @@
 package com.gladiator.arena.entities;
 
 import com.badlogic.gdx.graphics.Color;
+import com.gladiator.arena.ai.EnemyAi;
+import com.gladiator.arena.ai.GoblinAi;
 
 public class Goblin extends Enemy {
-    private boolean aggressive;
+    private final EnemyAi ai;
 
     public Goblin(float x, float y) {
         super(
@@ -21,20 +23,17 @@ public class Goblin extends Enemy {
             25,
             Color.ORANGE
         );
+        ai = new GoblinAi(this);
     }
 
     @Override
     protected void onWaveSpawn() {
-        aggressive = true;
+        ai.onSpawn();
     }
 
     @Override
     protected void updateMovement(float delta, Player player) {
-        if (!aggressive) {
-            return;
-        }
-
-        moveToward(player.getX() + Player.SPRITE_WIDTH / 2f, player.getY() + Player.SPRITE_HEIGHT / 2f, delta, speed);
+        ai.update(delta, player);
     }
 
     @Override

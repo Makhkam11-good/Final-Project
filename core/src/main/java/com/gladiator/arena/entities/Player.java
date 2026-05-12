@@ -27,16 +27,24 @@ public class Player {
     private static final float HITBOX_HEIGHT = 40f;
     private static final float ARENA_WIDTH = 800f;
     private static final float ARENA_HEIGHT = 480f;
-    private static final float ATTACK_STATE_DURATION = 0.12f;
+    private static final float ATTACK_STATE_DURATION = 0.18f;
+    private static final float ATTACK_EFFECT_DURATION = 0.22f;
     private static final float ATTACK_RADIUS = 80f;
 
     private float x;
     private float y;
     private float velocityX;
     private float velocityY;
+    private float facingX = 1f;
+    private float facingY;
     private float hp;
     private float attackTimer;
     private float attackStateTimer;
+    private float attackEffectTimer;
+    private float attackStartX;
+    private float attackStartY;
+    private float attackEndX;
+    private float attackEndY;
     private float stateTime;
 
     private final Rectangle bounds = new Rectangle();
@@ -80,6 +88,7 @@ public class Player {
         }
 
         updateAttackStateTimer(delta);
+        updateAttackEffectTimer(delta);
         if (attackStateTimer > 0f) {
             setCurrentState(attackState);
         } else if (MathUtils.isZero(velocityX) && MathUtils.isZero(velocityY)) {
@@ -131,6 +140,14 @@ public class Player {
         return y;
     }
 
+    public float getCenterX() {
+        return x + SPRITE_WIDTH / 2f;
+    }
+
+    public float getCenterY() {
+        return y + SPRITE_HEIGHT / 2f;
+    }
+
     public float getVelocityX() {
         return velocityX;
     }
@@ -171,6 +188,30 @@ public class Player {
         return stats.getIncomingDamageMultiplier();
     }
 
+    public boolean isAttackEffectActive() {
+        return attackEffectTimer > 0f;
+    }
+
+    public float getAttackEffectProgress() {
+        return MathUtils.clamp(attackEffectTimer / ATTACK_EFFECT_DURATION, 0f, 1f);
+    }
+
+    public float getAttackStartX() {
+        return attackStartX;
+    }
+
+    public float getAttackStartY() {
+        return attackStartY;
+    }
+
+    public float getAttackEndX() {
+        return attackEndX;
+    }
+
+    public float getAttackEndY() {
+        return attackEndY;
+    }
+
     private void handleMovement(float delta) {
         float moveX = 0f;
         float moveY = 0f;
@@ -192,6 +233,8 @@ public class Player {
             float length = (float) Math.sqrt(moveX * moveX + moveY * moveY);
             moveX /= length;
             moveY /= length;
+            facingX = moveX;
+            facingY = moveY;
         }
 
         velocityX = moveX * stats.getSpeed();
@@ -206,17 +249,33 @@ public class Player {
 
     private void performAttack(List<Enemy> enemies) {
         attackStateTimer = ATTACK_STATE_DURATION;
+        attackEffectTimer = ATTACK_EFFECT_DURATION;
+        attackStartX = getCenterX();
+        attackStartY = getCenterY();
 
         Enemy target = findClosestEnemyInRange(enemies);
         if (target != null) {
+            attackEndX = target.getCenterX();
+            attackEndY = target.getCenterY();
             target.takeDamage(getDamage());
+            return;
         }
+
+        attackEndX = attackStartX + facingX * ATTACK_RADIUS * 0.75f;
+        attackEndY = attackStartY + facingY * ATTACK_RADIUS * 0.75f;
     }
 
     private void updateAttackStateTimer(float delta) {
         attackStateTimer -= delta;
         if (attackStateTimer < 0f) {
             attackStateTimer = 0f;
+        }
+    }
+
+    private void updateAttackEffectTimer(float delta) {
+        attackEffectTimer -= delta;
+        if (attackEffectTimer < 0f) {
+            attackEffectTimer = 0f;
         }
     }
 
@@ -256,8 +315,8 @@ public class Player {
             return null;
         }
 
-        float centerX = x + SPRITE_WIDTH / 2f;
-        float centerY = y + SPRITE_HEIGHT / 2f;
+        float centerX = getCenterX();
+        float centerY = getCenterY();
         float bestDistance = ATTACK_RADIUS;
         Enemy closest = null;
 
