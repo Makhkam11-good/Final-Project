@@ -28,14 +28,14 @@ import java.util.Locale;
 import java.util.function.UnaryOperator;
 
 public class UpgradeScreen extends ScreenAdapter {
-    private static final float CARD_WIDTH = 216f;
-    private static final float CARD_HEIGHT = 166f;
-    private static final float CARD_Y = 146f;
-    private static final float CARD_START_X = 62f;
-    private static final float CARD_GAP = 14f;
-    private static final Rectangle SUMMARY_PANEL = new Rectangle(206f, 396f, 388f, 62f);
-    private static final Rectangle CHOOSE_PANEL = new Rectangle(256f, 334f, 288f, 38f);
-    private static final Rectangle STATS_PANEL = new Rectangle(64f, 62f, 672f, 46f);
+    private static final float CARD_WIDTH = 206f;
+    private static final float CARD_HEIGHT = 178f;
+    private static final float CARD_Y = 130f;
+    private static final float CARD_START_X = 82f;
+    private static final float CARD_GAP = 15f;
+    private static final Rectangle SUMMARY_PANEL = new Rectangle(216f, 398f, 368f, 58f);
+    private static final Rectangle CHOOSE_PANEL = new Rectangle(270f, 336f, 260f, 38f);
+    private static final Rectangle STATS_PANEL = new Rectangle(86f, 54f, 628f, 44f);
 
     private final GladiatorGame game;
     private final Player player;
@@ -99,7 +99,7 @@ public class UpgradeScreen extends ScreenAdapter {
             Rectangle card = cardBounds.get(i);
             UpgradeCard upgrade = selectedCards.get(i);
             ArenaUi.drawButton(shapeRenderer, card, upgrade.color, card.contains(mouse));
-            drawUpgradeIcon(upgrade.icon, card.x + 44f, card.y + 82f);
+            drawUpgradeIcon(upgrade.icon, card.x + card.width / 2f, card.y + 96f);
         }
         shapeRenderer.end();
 
@@ -109,8 +109,8 @@ public class UpgradeScreen extends ScreenAdapter {
             game.getBatch(),
             "WAVE " + clearedWave + " CLEARED!",
             SUMMARY_PANEL.x + SUMMARY_PANEL.width / 2f,
-            442f,
-            1.35f,
+            441f,
+            1.12f,
             ArenaUi.PALE_GOLD
         );
         ArenaUi.drawCentered(
@@ -118,8 +118,8 @@ public class UpgradeScreen extends ScreenAdapter {
             game.getBatch(),
             "KILLED: " + enemiesKilled + " ENEMIES     SCORE: " + score,
             SUMMARY_PANEL.x + SUMMARY_PANEL.width / 2f,
-            414f,
-            0.98f,
+            416f,
+            0.84f,
             ArenaUi.GOLD
         );
         ArenaUi.drawCentered(
@@ -127,8 +127,8 @@ public class UpgradeScreen extends ScreenAdapter {
             game.getBatch(),
             "CHOOSE ONE UPGRADE",
             CHOOSE_PANEL.x + CHOOSE_PANEL.width / 2f,
-            358f,
-            1.05f,
+            360f,
+            0.90f,
             ArenaUi.PALE_GOLD
         );
 
@@ -136,52 +136,58 @@ public class UpgradeScreen extends ScreenAdapter {
             Rectangle card = cardBounds.get(i);
             UpgradeCard upgrade = selectedCards.get(i);
             float centerX = card.x + card.width / 2f;
-            ArenaUi.drawCentered(
+            float textWidth = card.width - 24f;
+            ArenaUi.drawCenteredFit(
                 game.getFont(),
                 game.getBatch(),
                 (i + 1) + ". " + upgrade.name.toUpperCase(Locale.ROOT),
                 centerX,
                 card.y + card.height - 28f,
-                1f,
-                ArenaUi.PALE_GOLD
+                0.86f,
+                ArenaUi.PALE_GOLD,
+                textWidth
             );
-            ArenaUi.drawText(
+            ArenaUi.drawCenteredFit(
                 game.getFont(),
                 game.getBatch(),
                 upgrade.description.toUpperCase(Locale.ROOT),
-                card.x + 82f,
-                card.y + 101f,
-                0.82f,
-                ArenaUi.BONE
+                centerX,
+                card.y + 68f,
+                0.72f,
+                ArenaUi.BONE,
+                textWidth
             );
-            ArenaUi.drawText(
+            ArenaUi.drawCenteredFit(
                 game.getFont(),
                 game.getBatch(),
                 upgrade.stackNote.toUpperCase(Locale.ROOT),
-                card.x + 82f,
-                card.y + 73f,
-                0.76f,
-                ArenaUi.BONE
+                centerX,
+                card.y + 49f,
+                0.68f,
+                ArenaUi.BONE,
+                textWidth
             );
-            ArenaUi.drawCentered(
+            ArenaUi.drawCenteredFit(
                 game.getFont(),
                 game.getBatch(),
                 "CLICK OR PRESS " + (i + 1),
                 centerX,
-                card.y + 30f,
-                0.82f,
-                ArenaUi.GOLD
+                card.y + 24f,
+                0.72f,
+                ArenaUi.GOLD,
+                textWidth
             );
         }
 
-        ArenaUi.drawCentered(
+        ArenaUi.drawCenteredFit(
             game.getFont(),
             game.getBatch(),
             buildStatsLine(),
             STATS_PANEL.x + STATS_PANEL.width / 2f,
-            92f,
-            0.88f,
-            ArenaUi.BONE
+            83f,
+            0.72f,
+            ArenaUi.BONE,
+            STATS_PANEL.width - 28f
         );
         game.getBatch().end();
     }
@@ -226,12 +232,12 @@ public class UpgradeScreen extends ScreenAdapter {
 
     private void selectRandomCards() {
         List<UpgradeCard> cards = new ArrayList<>();
-        cards.add(new UpgradeCard("Fire Weapon", "+15 damage", "Stacks additively", UpgradeIcon.FIRE, ArenaUi.RED, FireWeaponDecorator::new));
-        cards.add(new UpgradeCard("Poison Edge", "+10 damage", "No DoT, flat bonus", UpgradeIcon.BLADE, ArenaUi.GREEN, PoisonDecorator::new));
-        cards.add(new UpgradeCard("Shield", "+30 max HP", "Also heals by +30", UpgradeIcon.SHIELD, ArenaUi.BLUE, ShieldDecorator::new));
-        cards.add(new UpgradeCard("Armor", "-20% incoming damage", "Stacks multiplicatively", UpgradeIcon.ARMOR, ArenaUi.RED, ArmorDecorator::new));
-        cards.add(new UpgradeCard("Speed Boots", "+25% move speed", "Stacks multiplicatively", UpgradeIcon.BOOT, ArenaUi.GREEN, SpeedBootsDecorator::new));
-        cards.add(new UpgradeCard("Attack Speed", "-20% attack cooldown", "Stacks multiplicatively", UpgradeIcon.HOURGLASS, ArenaUi.BLUE, AttackSpeedDecorator::new));
+        cards.add(new UpgradeCard("Fire Weapon", "+15 damage", "Stacking bonus", UpgradeIcon.FIRE, ArenaUi.RED, FireWeaponDecorator::new));
+        cards.add(new UpgradeCard("Poison Edge", "+10 damage", "Flat bonus", UpgradeIcon.BLADE, ArenaUi.GREEN, PoisonDecorator::new));
+        cards.add(new UpgradeCard("Shield", "+30 max HP", "Heals by +30", UpgradeIcon.SHIELD, ArenaUi.BLUE, ShieldDecorator::new));
+        cards.add(new UpgradeCard("Armor", "-20% damage taken", "Stacking bonus", UpgradeIcon.ARMOR, ArenaUi.RED, ArmorDecorator::new));
+        cards.add(new UpgradeCard("Speed Boots", "+25% move speed", "Stacking bonus", UpgradeIcon.BOOT, ArenaUi.GREEN, SpeedBootsDecorator::new));
+        cards.add(new UpgradeCard("Attack Speed", "-20% cooldown", "Stacking bonus", UpgradeIcon.HOURGLASS, ArenaUi.BLUE, AttackSpeedDecorator::new));
 
         Collections.shuffle(cards);
         selectedCards.addAll(cards.subList(0, 3));

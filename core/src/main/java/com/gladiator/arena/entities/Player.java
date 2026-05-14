@@ -60,7 +60,7 @@ public class Player {
         y = (ARENA_HEIGHT - SPRITE_HEIGHT) / 2f;
         stats = new BasePlayerStats();
         hp = stats.getMaxHp();
-        attackTimer = stats.getAttackCooldown();
+        attackTimer = 0f;
         currentState = idleState;
         updateBounds();
     }
@@ -81,10 +81,10 @@ public class Player {
 
         handleMovement(delta);
 
-        attackTimer -= delta;
-        if (attackTimer <= 0f) {
-            attackTimer = stats.getAttackCooldown();
+        attackTimer = Math.max(0f, attackTimer - delta);
+        if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE) && MathUtils.isZero(attackTimer)) {
             performAttack(enemies);
+            attackTimer = stats.getAttackCooldown();
         }
 
         updateAttackStateTimer(delta);

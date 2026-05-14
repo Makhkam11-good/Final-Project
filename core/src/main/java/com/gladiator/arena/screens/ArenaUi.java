@@ -22,6 +22,7 @@ final class ArenaUi {
     static final Color GREEN = new Color(0.20f, 0.34f, 0.16f, 1f);
 
     private static final GlyphLayout GLYPH_LAYOUT = new GlyphLayout();
+    private static final Color TEXT_SHADOW = new Color(0f, 0f, 0f, 0.72f);
 
     private ArenaUi() {
     }
@@ -135,7 +136,45 @@ final class ArenaUi {
         font.getData().setScale(scale);
         font.setColor(color);
         GLYPH_LAYOUT.setText(font, text);
-        font.draw(batch, text, centerX - GLYPH_LAYOUT.width / 2f, y);
+        float x = centerX - GLYPH_LAYOUT.width / 2f;
+        font.setColor(TEXT_SHADOW);
+        font.draw(batch, text, x + 1f, y - 1f);
+        font.setColor(color);
+        font.draw(batch, text, x, y);
+
+        font.getData().setScale(oldScaleX, oldScaleY);
+        font.setColor(oldColor);
+    }
+
+    static void drawCenteredFit(
+        BitmapFont font,
+        SpriteBatch batch,
+        String text,
+        float centerX,
+        float y,
+        float scale,
+        Color color,
+        float maxWidth
+    ) {
+        float oldScaleX = font.getData().scaleX;
+        float oldScaleY = font.getData().scaleY;
+        Color oldColor = font.getColor().cpy();
+
+        font.getData().setScale(scale);
+        GLYPH_LAYOUT.setText(font, text);
+        float fittedScale = scale;
+        if (GLYPH_LAYOUT.width > maxWidth && GLYPH_LAYOUT.width > 0f) {
+            fittedScale = scale * maxWidth / GLYPH_LAYOUT.width;
+        }
+
+        font.getData().setScale(fittedScale);
+        font.setColor(color);
+        GLYPH_LAYOUT.setText(font, text);
+        float x = centerX - GLYPH_LAYOUT.width / 2f;
+        font.setColor(TEXT_SHADOW);
+        font.draw(batch, text, x + 1f, y - 1f);
+        font.setColor(color);
+        font.draw(batch, text, x, y);
 
         font.getData().setScale(oldScaleX, oldScaleY);
         font.setColor(oldColor);
@@ -155,6 +194,8 @@ final class ArenaUi {
         Color oldColor = font.getColor().cpy();
 
         font.getData().setScale(scale);
+        font.setColor(TEXT_SHADOW);
+        font.draw(batch, text, x + 1f, y - 1f);
         font.setColor(color);
         font.draw(batch, text, x, y);
 

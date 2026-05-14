@@ -5,6 +5,8 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureAtlas;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
@@ -17,6 +19,7 @@ public class GladiatorGame extends Game {
 
     private SpriteBatch batch;
     private BitmapFont font;
+    private TextureAtlas uiAtlas;
     private OrthographicCamera camera;
     private Viewport viewport;
     private final Vector2 screenToWorld = new Vector2();
@@ -28,7 +31,8 @@ public class GladiatorGame extends Game {
         viewport.update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
         batch = new SpriteBatch();
         batch.setProjectionMatrix(camera.combined);
-        font = new BitmapFont();
+        uiAtlas = new TextureAtlas(Gdx.files.internal("ui/uiskin.atlas"));
+        font = createUiFont();
         AssetManager.getInstance().loadGameAssets();
         setScreen(new MenuScreen(this));
     }
@@ -52,6 +56,15 @@ public class GladiatorGame extends Game {
         return screenToWorld;
     }
 
+    private BitmapFont createUiFont() {
+        TextureRegion fontRegion = uiAtlas.findRegion("font");
+        BitmapFont uiFont = fontRegion == null
+            ? new BitmapFont()
+            : new BitmapFont(Gdx.files.internal("ui/font.fnt"), fontRegion, false);
+        uiFont.setUseIntegerPositions(true);
+        return uiFont;
+    }
+
     @Override
     public void resize(int width, int height) {
         if (viewport != null) {
@@ -70,6 +83,7 @@ public class GladiatorGame extends Game {
         }
         batch.dispose();
         font.dispose();
+        uiAtlas.dispose();
         AssetManager.getInstance().dispose();
     }
 }

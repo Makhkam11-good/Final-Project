@@ -145,6 +145,7 @@ public class GameScreen extends ScreenAdapter {
             + "   WAVE " + levelManager.getCurrentWave()
             + "   SCORE " + score
             + "   " + gameManager.getDifficultyName().toUpperCase(Locale.ROOT)
+            + "   SPACE ATK"
             + "   ESC PAUSE";
         ArenaUi.drawText(game.getFont(), game.getBatch(), hud, hudX, hudY, 0.74f, ArenaUi.BONE);
         if (activeBoss != null && !activeBoss.isDead()) {
