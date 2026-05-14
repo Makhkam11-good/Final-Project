@@ -3,7 +3,6 @@ package com.gladiator.arena.screens;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.ScreenAdapter;
-import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
@@ -14,9 +13,12 @@ import com.gladiator.arena.managers.GameManager;
 public class PauseScreen extends ScreenAdapter {
     private final GladiatorGame game;
     private final GameScreen returnScreen;
-    private final Rectangle resumeButton = new Rectangle(300f, 205f, 200f, 70f);
+    private final Rectangle panel = new Rectangle(238f, 138f, 324f, 214f);
+    private final Rectangle resumeButton = new Rectangle(280f, 232f, 240f, 46f);
+    private final Rectangle menuButton = new Rectangle(280f, 174f, 240f, 46f);
     private final ShapeRenderer shapeRenderer = new ShapeRenderer();
     private boolean disposed;
+    private boolean transitioning;
 
     public PauseScreen(GladiatorGame game, GameScreen returnScreen) {
         this.game = game;
@@ -26,28 +28,45 @@ public class PauseScreen extends ScreenAdapter {
     @Override
     public void render(float delta) {
         handleInput();
-        if (disposed) {
+        if (disposed || transitioning) {
             return;
         }
 
-        ScreenUtils.clear(0.18f, 0.1f, 0.22f, 1f);
+        ScreenUtils.clear(0.035f, 0.03f, 0.04f, 1f);
 
         shapeRenderer.setProjectionMatrix(game.getBatch().getProjectionMatrix());
+        ArenaUi.drawArenaBackdrop(shapeRenderer);
+
+        Vector2 mouse = game.screenToWorld(Gdx.input.getX(), Gdx.input.getY());
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        shapeRenderer.setColor(Color.SKY);
-        shapeRenderer.rect(resumeButton.x, resumeButton.y, resumeButton.width, resumeButton.height);
+        ArenaUi.drawPanel(shapeRenderer, panel, ArenaUi.INK, ArenaUi.GOLD);
+        ArenaUi.drawButton(shapeRenderer, resumeButton, ArenaUi.GREEN, resumeButton.contains(mouse));
+        ArenaUi.drawButton(shapeRenderer, menuButton, ArenaUi.RED, menuButton.contains(mouse));
         shapeRenderer.end();
 
         game.getBatch().begin();
-        game.getFont().draw(game.getBatch(), "PAUSED", 370f, 340f);
-        game.getFont().draw(game.getBatch(), "RESUME", 362f, 248f);
-        game.getFont().draw(game.getBatch(), "Click RESUME button", 330f, 170f);
+        ArenaUi.drawCentered(game.getFont(), game.getBatch(), "PAUSED", 400f, 324f, 1.8f, ArenaUi.PALE_GOLD);
+        ArenaUi.drawCentered(game.getFont(), game.getBatch(), "RESUME", 400f, 262f, 1.1f, ArenaUi.BONE);
+        ArenaUi.drawCentered(game.getFont(), game.getBatch(), "MAIN MENU", 400f, 204f, 1.1f, ArenaUi.BONE);
+        ArenaUi.drawCentered(game.getFont(), game.getBatch(), "R - RESUME     M - MENU", 400f, 156f, 0.8f, ArenaUi.GOLD);
         game.getBatch().end();
     }
 
     private void handleInput() {
+        if (transitioning) {
+            return;
+        }
+
         if (Gdx.input.isKeyJustPressed(Input.Keys.R)) {
             resumeGame();
+            return;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            resumeGame();
+            return;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.M)) {
+            returnToMenu();
             return;
         }
 
@@ -58,12 +77,23 @@ public class PauseScreen extends ScreenAdapter {
         Vector2 touch = game.screenToWorld(Gdx.input.getX(), Gdx.input.getY());
         if (resumeButton.contains(touch.x, touch.y)) {
             resumeGame();
+        } else if (menuButton.contains(touch.x, touch.y)) {
+            returnToMenu();
         }
     }
 
     private void resumeGame() {
+        transitioning = true;
         GameManager.getInstance().getGameStateManager().pop();
         game.setScreen(returnScreen);
+        dispose();
+    }
+
+    private void returnToMenu() {
+        transitioning = true;
+        returnScreen.dispose();
+        game.setScreen(new MenuScreen(game));
+        dispose();
     }
 
     @Override

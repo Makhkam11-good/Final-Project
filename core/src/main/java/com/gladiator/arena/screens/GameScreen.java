@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 
 public class GameScreen extends ScreenAdapter {
     private static final int FINAL_WAVE = 10;
@@ -35,9 +36,9 @@ public class GameScreen extends ScreenAdapter {
     private static final float DEFAULT_ENEMY_WIDTH = 32f;
     private static final float DEFAULT_ENEMY_HEIGHT = 32f;
     private static final float PROGRESS_BAR_X = 16f;
-    private static final float PROGRESS_BAR_Y = 426f;
+    private static final float PROGRESS_BAR_Y = 420f;
     private static final float PROGRESS_BAR_WIDTH = 270f;
-    private static final float PROGRESS_BAR_HEIGHT = 12f;
+    private static final float PROGRESS_BAR_HEIGHT = 8f;
     private static final float HEALTH_BAR_HEIGHT = 5f;
     private static final float HEALTH_BAR_OFFSET_Y = 6f;
     private static final float PLAYER_HEALTH_BAR_WIDTH = 44f;
@@ -132,27 +133,38 @@ public class GameScreen extends ScreenAdapter {
         player.render(game.getBatch(), assets);
         game.getBatch().end();
 
+        drawHudPanel();
         drawCharacterHealthBars();
         drawAttackEffect();
         drawWaveProgressBar();
 
         game.getBatch().begin();
-        float hudX = 16f;
-        float hudY = 464f;
-        String hud = "HP: " + (int) player.getHp() + "/" + (int) player.getMaxHp()
-            + " | Wave: " + levelManager.getCurrentWave()
-            + " | Score: " + score
-            + " | Difficulty: " + gameManager.getDifficultyName()
-            + " | ESC Pause";
-        game.getFont().draw(game.getBatch(), hud, hudX, hudY);
+        float hudX = 20f;
+        float hudY = 466f;
+        String hud = "HP " + (int) player.getHp() + "/" + (int) player.getMaxHp()
+            + "   WAVE " + levelManager.getCurrentWave()
+            + "   SCORE " + score
+            + "   " + gameManager.getDifficultyName().toUpperCase(Locale.ROOT)
+            + "   ESC PAUSE";
+        ArenaUi.drawText(game.getFont(), game.getBatch(), hud, hudX, hudY, 0.74f, ArenaUi.BONE);
         if (activeBoss != null && !activeBoss.isDead()) {
             float bossHpPercent = MathUtils.clamp(activeBoss.getHp() / activeBoss.getMaxHp(), 0f, 1f);
-            game.getFont().draw(game.getBatch(), "Boss HP: " + (int) activeBoss.getHp()
+            ArenaUi.drawCentered(game.getFont(), game.getBatch(), "BOSS HP: " + (int) activeBoss.getHp()
                 + "/" + (int) activeBoss.getMaxHp()
-                + " (" + (int) (bossHpPercent * 100f) + "%)", 300f, 28f);
+                + " (" + (int) (bossHpPercent * 100f) + "%)", 400f, 28f, 0.86f, ArenaUi.PALE_GOLD);
         }
-        game.getFont().draw(game.getBatch(), buildWaveProgressText(), PROGRESS_BAR_X, PROGRESS_BAR_Y - 8f);
+        ArenaUi.drawText(game.getFont(), game.getBatch(), buildWaveProgressText(), PROGRESS_BAR_X, PROGRESS_BAR_Y - 8f, 0.78f, ArenaUi.GOLD);
         game.getBatch().end();
+    }
+
+    private void drawHudPanel() {
+        shapeRenderer.setProjectionMatrix(game.getBatch().getProjectionMatrix());
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        ArenaUi.drawThinPanel(shapeRenderer, 10f, 448f, 780f, 26f, ArenaUi.INK, ArenaUi.GOLD);
+        if (activeBoss != null && !activeBoss.isDead()) {
+            ArenaUi.drawThinPanel(shapeRenderer, 276f, 8f, 248f, 30f, ArenaUi.INK, ArenaUi.RED);
+        }
+        shapeRenderer.end();
     }
 
     private void drawCharacterHealthBars() {
@@ -243,14 +255,15 @@ public class GameScreen extends ScreenAdapter {
         float progress = getWaveProgress();
         shapeRenderer.setProjectionMatrix(game.getBatch().getProjectionMatrix());
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        shapeRenderer.setColor(0.02f, 0.02f, 0.02f, 0.95f);
-        shapeRenderer.rect(PROGRESS_BAR_X - 2f, PROGRESS_BAR_Y - 2f, PROGRESS_BAR_WIDTH + 4f, PROGRESS_BAR_HEIGHT + 4f);
-        shapeRenderer.setColor(0.19f, 0.16f, 0.12f, 1f);
-        shapeRenderer.rect(PROGRESS_BAR_X, PROGRESS_BAR_Y, PROGRESS_BAR_WIDTH, PROGRESS_BAR_HEIGHT);
-        shapeRenderer.setColor(0.9f, 0.55f, 0.18f, 1f);
-        shapeRenderer.rect(PROGRESS_BAR_X, PROGRESS_BAR_Y, PROGRESS_BAR_WIDTH * progress, PROGRESS_BAR_HEIGHT);
-        shapeRenderer.setColor(1f, 0.86f, 0.38f, 1f);
-        shapeRenderer.rect(PROGRESS_BAR_X, PROGRESS_BAR_Y + PROGRESS_BAR_HEIGHT - 3f, PROGRESS_BAR_WIDTH * progress, 3f);
+        ArenaUi.drawProgressBar(
+            shapeRenderer,
+            PROGRESS_BAR_X,
+            PROGRESS_BAR_Y,
+            PROGRESS_BAR_WIDTH,
+            PROGRESS_BAR_HEIGHT,
+            progress,
+            ArenaUi.GOLD
+        );
         shapeRenderer.end();
     }
 
@@ -410,7 +423,7 @@ public class GameScreen extends ScreenAdapter {
         }
 
         if (summary != null && summary.getWaveNumber() >= FINAL_WAVE) {
-            game.setScreen(new VictoryScreen(game));
+            game.setScreen(new VictoryScreen(game, score));
             dispose();
             return;
         }
@@ -425,7 +438,7 @@ public class GameScreen extends ScreenAdapter {
         }
 
         transitioning = true;
-        game.setScreen(new GameOverScreen(game));
+        game.setScreen(new GameOverScreen(game, levelManager.getCurrentWave(), score));
         dispose();
     }
 
@@ -435,7 +448,7 @@ public class GameScreen extends ScreenAdapter {
         }
 
         transitioning = true;
-        game.setScreen(new VictoryScreen(game));
+        game.setScreen(new VictoryScreen(game, score));
         dispose();
     }
 
