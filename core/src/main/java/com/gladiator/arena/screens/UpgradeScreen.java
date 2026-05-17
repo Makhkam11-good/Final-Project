@@ -42,6 +42,7 @@ public class UpgradeScreen extends ScreenAdapter {
     private final int clearedWave;
     private final int enemiesKilled;
     private final int score;
+    private final int roomNumber;
     private final int coinCount;
     private final boolean reviveUsed;
     private final ShapeRenderer shapeRenderer = new ShapeRenderer();
@@ -51,7 +52,7 @@ public class UpgradeScreen extends ScreenAdapter {
     private boolean transitioning;
 
     public UpgradeScreen(GladiatorGame game) {
-        this(game, new Player(), 1, 0, 0, 0, false);
+        this(game, new Player(), 1, 0, 0, 1, 0, false);
     }
 
     public UpgradeScreen(GladiatorGame game, Player player, LevelManager.WaveSummary summary, int score) {
@@ -70,12 +71,25 @@ public class UpgradeScreen extends ScreenAdapter {
         int coinCount,
         boolean reviveUsed
     ) {
+        this(game, player, summary, score, 1, coinCount, reviveUsed);
+    }
+
+    public UpgradeScreen(
+        GladiatorGame game,
+        Player player,
+        LevelManager.WaveSummary summary,
+        int score,
+        int roomNumber,
+        int coinCount,
+        boolean reviveUsed
+    ) {
         this(
             game,
             player,
             summary == null ? 1 : summary.getWaveNumber(),
             summary == null ? 0 : summary.getEnemiesKilled(),
             score,
+            roomNumber,
             coinCount,
             reviveUsed
         );
@@ -87,6 +101,7 @@ public class UpgradeScreen extends ScreenAdapter {
         int clearedWave,
         int enemiesKilled,
         int score,
+        int roomNumber,
         int coinCount,
         boolean reviveUsed
     ) {
@@ -95,6 +110,7 @@ public class UpgradeScreen extends ScreenAdapter {
         this.clearedWave = clearedWave;
         this.enemiesKilled = enemiesKilled;
         this.score = score;
+        this.roomNumber = Math.max(1, roomNumber);
         this.coinCount = Math.max(0, coinCount);
         this.reviveUsed = reviveUsed;
         selectRandomCards();
@@ -136,7 +152,7 @@ public class UpgradeScreen extends ScreenAdapter {
         ArenaUi.drawCentered(
             game.getFont(),
             game.getBatch(),
-            "WAVE " + clearedWave + " CLEARED!",
+            "ROOM " + roomNumber + " - WAVE " + clearedWave + " CLEARED!",
             SUMMARY_PANEL.x + SUMMARY_PANEL.width / 2f,
             441f,
             1.12f,
@@ -255,7 +271,15 @@ public class UpgradeScreen extends ScreenAdapter {
 
         transitioning = true;
         player.applyUpgrade(selectedCards.get(index).upgradeFactory);
-        game.setScreen(new GameScreen(game, player, clearedWave + 1, score, coinCount, reviveUsed));
+        game.setScreen(new GameScreen(
+            game,
+            player,
+            clearedWave + 1,
+            score,
+            roomNumber,
+            player.getCoins(),
+            player.isReviveUsed()
+        ));
         dispose();
     }
 

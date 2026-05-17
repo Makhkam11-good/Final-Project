@@ -35,7 +35,7 @@ public class Player {
     private static final float DAMAGE_COOLDOWN = 0.65f;
     private static final float DAMAGE_FLASH_DURATION = 0.18f;
     private static final float REVIVE_INVULNERABILITY_DURATION = 1.8f;
-    private static final int REVIVE_COST = 12;
+    private static final int REVIVE_COST = 25;
     private static final Color DAMAGE_FLASH_COLOR = new Color(1f, 0.46f, 0.46f, 1f);
 
     private float x;
