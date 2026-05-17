@@ -140,6 +140,29 @@ public class Player {
         return true;
     }
 
+    public void reviveAt(float reviveX, float reviveY, float hpPercent) {
+        x = MathUtils.clamp(reviveX, 0f, ARENA_WIDTH - SPRITE_WIDTH);
+        y = MathUtils.clamp(reviveY, 0f, ARENA_HEIGHT - SPRITE_HEIGHT);
+        velocityX = 0f;
+        velocityY = 0f;
+        hp = MathUtils.clamp(stats.getMaxHp() * hpPercent, 1f, stats.getMaxHp());
+        damageCooldownTimer = 0f;
+        damageFlashTimer = 0f;
+        attackStateTimer = 0f;
+        attackEffectTimer = 0f;
+        setCurrentState(idleState);
+        updateBounds();
+    }
+
+    public void grantInvulnerability(float duration) {
+        if (duration <= 0f) {
+            return;
+        }
+
+        damageCooldownTimer = Math.max(damageCooldownTimer, duration);
+        damageFlashTimer = Math.max(damageFlashTimer, DAMAGE_FLASH_DURATION);
+    }
+
     public void applyUpgrade(UnaryOperator<PlayerStats> upgradeFactory) {
         if (upgradeFactory == null) {
             return;

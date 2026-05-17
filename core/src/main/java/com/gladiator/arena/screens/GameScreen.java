@@ -33,6 +33,7 @@ import java.util.Locale;
 
 public class GameScreen extends ScreenAdapter {
     private static final int FINAL_WAVE = 10;
+    private static final int REVIVE_COST = 25;
     private static final float ARENA_WIDTH = 800f;
     private static final float ARENA_HEIGHT = 480f;
     private static final float DEFAULT_ENEMY_WIDTH = 32f;
@@ -51,6 +52,8 @@ public class GameScreen extends ScreenAdapter {
     private static final float MIN_ENEMY_HEALTH_BAR_WIDTH = 34f;
     private static final float WAVE_COMPLETE_DELAY = 1.0f;
     private static final float WAVE_COMPLETE_FADE_ALPHA = 0.6f;
+    private static final float REVIVE_HP_PERCENT = 0.5f;
+    private static final float REVIVE_INVULNERABILITY = 1.35f;
 
     private final GladiatorGame game;
     private final GameManager gameManager;
@@ -77,10 +80,13 @@ public class GameScreen extends ScreenAdapter {
     private float spawnTimer;
     private float waveCompleteTimer;
     private float transitionAlpha;
+    private float lastSafeX;
+    private float lastSafeY;
     private boolean disposed;
     private boolean transitioning;
     private boolean playerDeathPosted;
     private boolean waveCompletePending;
+    private boolean reviveUsed;
 
     public GameScreen(GladiatorGame game) {
         this(game, new Player(), 1, 0);
@@ -91,6 +97,10 @@ public class GameScreen extends ScreenAdapter {
     }
 
     public GameScreen(GladiatorGame game, Player player, int waveNumber, int score, int coinCount) {
+        this(game, player, waveNumber, score, coinCount, false);
+    }
+
+    public GameScreen(GladiatorGame game, Player player, int waveNumber, int score, int coinCount, boolean reviveUsed) {
         this.game = game;
         this.gameManager = GameManager.getInstance();
         this.eventBus = EventBus.getInstance();
@@ -103,6 +113,8 @@ public class GameScreen extends ScreenAdapter {
         this.player = player == null ? new Player() : player;
         this.score = score;
         this.coinCount = Math.max(0, coinCount);
+        this.reviveUsed = reviveUsed;
+        updateLastSafePosition();
 
         eventBus.subscribe(GameEvent.Type.WAVE_CLEARED, waveClearedListener);
         eventBus.subscribe(GameEvent.Type.PLAYER_DIED, playerDiedListener);
@@ -133,10 +145,13 @@ public class GameScreen extends ScreenAdapter {
             damageNumberManager.update(delta);
             player.update(delta, enemies);
             updateCoins(delta);
+            resolvePlayerDeath();
             if (transitioning) {
                 return;
             }
+            updateLastSafePosition();
         } else {
+            updateLastSafePosition();
             updateSpawning(delta);
             updateEnemies(delta);
             damageNumberManager.update(delta);
@@ -147,17 +162,11 @@ public class GameScreen extends ScreenAdapter {
             player.update(delta, enemies);
             updateCoins(delta);
             removeDeadEnemies();
+            resolvePlayerDeath();
             if (transitioning) {
                 return;
             }
-
-            if (player.getHp() <= 0f && !playerDeathPosted) {
-                playerDeathPosted = true;
-                eventBus.post(GameEvent.Type.PLAYER_DIED);
-                if (transitioning) {
-                    return;
-                }
-            }
+            updateLastSafePosition();
         }
 
         ScreenUtils.clear(0.08f, 0.07f, 0.06f, 1f);
@@ -184,7 +193,8 @@ public class GameScreen extends ScreenAdapter {
         String hud = "HP " + (int) player.getHp() + "/" + (int) player.getMaxHp()
             + "   WAVE " + levelManager.getCurrentWave()
             + "   SCORE " + score
-            + "   COINS: " + coinCount
+            + "   COINS " + coinCount + "/" + REVIVE_COST
+            + "   " + buildReviveStatus()
             + "   " + gameManager.getDifficultyName().toUpperCase(Locale.ROOT)
             + "   SPACE ATK"
             + "   ESC PAUSE";
@@ -419,9 +429,8 @@ public class GameScreen extends ScreenAdapter {
     private void updateEnemies(float delta) {
         for (Enemy enemy : enemies) {
             enemy.update(delta, player);
-            if (player.getHp() <= 0f && !playerDeathPosted) {
-                playerDeathPosted = true;
-                eventBus.post(GameEvent.Type.PLAYER_DIED);
+            if (player.getHp() <= 0f) {
+                resolvePlayerDeath();
                 return;
             }
         }
@@ -526,6 +535,16 @@ public class GameScreen extends ScreenAdapter {
         return "Attack: " + (int) (progress * 100f) + "%";
     }
 
+    private String buildReviveStatus() {
+        if (reviveUsed) {
+            return "REVIVE USED";
+        }
+        if (coinCount >= REVIVE_COST) {
+            return "REVIVE READY";
+        }
+        return "REVIVE LOCKED";
+    }
+
     private void updateWaveCompleteTransition(float delta) {
         waveCompleteTimer += delta;
         float progress = MathUtils.clamp(waveCompleteTimer / WAVE_COMPLETE_DELAY, 0f, 1f);
@@ -557,7 +576,7 @@ public class GameScreen extends ScreenAdapter {
 
     private void openUpgradeScreen() {
         transitioning = true;
-        game.setScreen(new UpgradeScreen(game, player, pendingWaveSummary, score, coinCount));
+        game.setScreen(new UpgradeScreen(game, player, pendingWaveSummary, score, coinCount, reviveUsed));
         dispose();
     }
 
@@ -615,6 +634,42 @@ public class GameScreen extends ScreenAdapter {
         transitioning = true;
         game.setScreen(new GameOverScreen(game, levelManager.getCurrentWave(), score));
         dispose();
+    }
+
+    private void resolvePlayerDeath() {
+        if (transitioning || playerDeathPosted || player.getHp() > 0f) {
+            return;
+        }
+
+        if (tryRevivePlayer()) {
+            return;
+        }
+
+        playerDeathPosted = true;
+        eventBus.post(GameEvent.Type.PLAYER_DIED);
+    }
+
+    private boolean tryRevivePlayer() {
+        if (reviveUsed || coinCount < REVIVE_COST) {
+            return false;
+        }
+
+        coinCount -= REVIVE_COST;
+        reviveUsed = true;
+        player.reviveAt(lastSafeX, lastSafeY, REVIVE_HP_PERCENT);
+        player.grantInvulnerability(REVIVE_INVULNERABILITY);
+        playerDeathPosted = false;
+        updateLastSafePosition();
+        return true;
+    }
+
+    private void updateLastSafePosition() {
+        if (player.getHp() <= 0f) {
+            return;
+        }
+
+        lastSafeX = player.getX();
+        lastSafeY = player.getY();
     }
 
     private void handleBossDied(GameEvent event) {

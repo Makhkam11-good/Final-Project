@@ -43,6 +43,7 @@ public class UpgradeScreen extends ScreenAdapter {
     private final int enemiesKilled;
     private final int score;
     private final int coinCount;
+    private final boolean reviveUsed;
     private final ShapeRenderer shapeRenderer = new ShapeRenderer();
     private final List<UpgradeCard> selectedCards = new ArrayList<>();
     private final List<Rectangle> cardBounds = new ArrayList<>();
@@ -50,7 +51,7 @@ public class UpgradeScreen extends ScreenAdapter {
     private boolean transitioning;
 
     public UpgradeScreen(GladiatorGame game) {
-        this(game, new Player(), 1, 0, 0, 0);
+        this(game, new Player(), 1, 0, 0, 0, false);
     }
 
     public UpgradeScreen(GladiatorGame game, Player player, LevelManager.WaveSummary summary, int score) {
@@ -58,23 +59,44 @@ public class UpgradeScreen extends ScreenAdapter {
     }
 
     public UpgradeScreen(GladiatorGame game, Player player, LevelManager.WaveSummary summary, int score, int coinCount) {
+        this(game, player, summary, score, coinCount, false);
+    }
+
+    public UpgradeScreen(
+        GladiatorGame game,
+        Player player,
+        LevelManager.WaveSummary summary,
+        int score,
+        int coinCount,
+        boolean reviveUsed
+    ) {
         this(
             game,
             player,
             summary == null ? 1 : summary.getWaveNumber(),
             summary == null ? 0 : summary.getEnemiesKilled(),
             score,
-            coinCount
+            coinCount,
+            reviveUsed
         );
     }
 
-    private UpgradeScreen(GladiatorGame game, Player player, int clearedWave, int enemiesKilled, int score, int coinCount) {
+    private UpgradeScreen(
+        GladiatorGame game,
+        Player player,
+        int clearedWave,
+        int enemiesKilled,
+        int score,
+        int coinCount,
+        boolean reviveUsed
+    ) {
         this.game = game;
         this.player = player;
         this.clearedWave = clearedWave;
         this.enemiesKilled = enemiesKilled;
         this.score = score;
         this.coinCount = Math.max(0, coinCount);
+        this.reviveUsed = reviveUsed;
         selectRandomCards();
         createCardBounds();
     }
@@ -233,7 +255,7 @@ public class UpgradeScreen extends ScreenAdapter {
 
         transitioning = true;
         player.applyUpgrade(selectedCards.get(index).upgradeFactory);
-        game.setScreen(new GameScreen(game, player, clearedWave + 1, score, coinCount));
+        game.setScreen(new GameScreen(game, player, clearedWave + 1, score, coinCount, reviveUsed));
         dispose();
     }
 
