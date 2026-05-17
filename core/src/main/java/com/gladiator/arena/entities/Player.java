@@ -35,7 +35,6 @@ public class Player {
     private static final float DAMAGE_COOLDOWN = 0.65f;
     private static final float DAMAGE_FLASH_DURATION = 0.18f;
     private static final float REVIVE_INVULNERABILITY_DURATION = 1.8f;
-    private static final int REVIVE_COST = 25;
     private static final Color DAMAGE_FLASH_COLOR = new Color(1f, 0.46f, 0.46f, 1f);
 
     private float x;
@@ -158,6 +157,7 @@ public class Player {
         attackEffectTimer = 0f;
         setCurrentState(idleState);
         updateBounds();
+        grantInvulnerability(REVIVE_INVULNERABILITY_DURATION);
     }
 
     public void grantInvulnerability(float duration) {
@@ -192,20 +192,20 @@ public class Player {
         }
     }
 
-    public boolean tryRevive() {
-        return tryReviveAt(x, y, 0.55f);
-    }
-
-    public boolean tryReviveAt(float reviveX, float reviveY, float hpPercent) {
-        if (reviveUsed || coins < REVIVE_COST) {
+    public boolean spendCoins(int amount) {
+        if (amount <= 0) {
+            return true;
+        }
+        if (coins < amount) {
             return false;
         }
 
-        coins -= REVIVE_COST;
-        reviveUsed = true;
-        reviveAt(reviveX, reviveY, hpPercent);
-        grantInvulnerability(REVIVE_INVULNERABILITY_DURATION);
+        coins -= amount;
         return true;
+    }
+
+    public void setCoins(int coins) {
+        this.coins = Math.max(0, coins);
     }
 
     public int getCoins() {
@@ -216,8 +216,8 @@ public class Player {
         return reviveUsed;
     }
 
-    public int getReviveCost() {
-        return REVIVE_COST;
+    public void setReviveUsed(boolean reviveUsed) {
+        this.reviveUsed = reviveUsed;
     }
 
     public boolean isInvulnerable() {

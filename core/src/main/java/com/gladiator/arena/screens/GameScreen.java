@@ -6,6 +6,8 @@ import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.gladiator.arena.GladiatorGame;
 import com.gladiator.arena.entities.Boss;
@@ -36,6 +38,7 @@ public class GameScreen extends ScreenAdapter {
     private static final int FINAL_ROOM = 2;
     private static final int WAVES_PER_ROOM = 10;
     private static final float SCREEN_TRANSITION_DELAY = 0.72f;
+    private static final int REVIVE_COST = 100;
     private static final float REVIVE_HP_PERCENT = 0.5f;
     private static final float ARENA_WIDTH = 800f;
     private static final float ARENA_HEIGHT = 480f;
@@ -71,6 +74,8 @@ public class GameScreen extends ScreenAdapter {
     private final EnemyFactory goblinFactory = new GoblinFactory();
     private final EnemyFactory bossFactory = new BossFactory();
     private final ShapeRenderer shapeRenderer = new ShapeRenderer();
+    private final Rectangle revivePanel = new Rectangle(234f, 146f, 332f, 190f);
+    private final Rectangle reviveButton = new Rectangle(300f, 190f, 200f, 48f);
     private Boss activeBoss;
     private Portal portal;
     private int roomNumber;
@@ -78,11 +83,13 @@ public class GameScreen extends ScreenAdapter {
     private int enemiesRemainingToSpawn;
     private float spawnTimer;
     private float screenTransitionTimer;
-    private float lastSafeX;
-    private float lastSafeY;
+    private float deathX;
+    private float deathY;
     private boolean disposed;
     private boolean transitioning;
     private boolean playerDeathPosted;
+    private boolean reviveUsed;
+    private boolean revivePromptVisible;
     private PendingTransition pendingTransition = PendingTransition.NONE;
 
     private enum PendingTransition {
@@ -130,7 +137,11 @@ public class GameScreen extends ScreenAdapter {
         this.player = player == null ? new Player() : player;
         this.score = score;
         this.roomNumber = MathUtils.clamp(roomNumber, 1, FINAL_ROOM);
-        updateLastSafePosition();
+        if (coinCount > this.player.getCoins()) {
+            this.player.setCoins(coinCount);
+        }
+        this.reviveUsed = reviveUsed || this.player.isReviveUsed();
+        this.player.setReviveUsed(this.reviveUsed);
 
         eventBus.subscribe(GameEvent.Type.WAVE_CLEARED, waveClearedListener);
         eventBus.subscribe(GameEvent.Type.PLAYER_DIED, playerDiedListener);
@@ -148,6 +159,12 @@ public class GameScreen extends ScreenAdapter {
 
     @Override
     public void render(float delta) {
+        if (revivePromptVisible) {
+            handleRevivePromptInput();
+            renderGame();
+            return;
+        }
+
         if (transitioning) {
             updateScreenTransition(delta);
             if (disposed) {
@@ -164,7 +181,7 @@ public class GameScreen extends ScreenAdapter {
         if (!transitioning) {
             updateSpawning(delta);
             updateEnemies(delta);
-            if (transitioning) {
+            if (transitioning || revivePromptVisible) {
                 renderGame();
                 return;
             }
@@ -176,12 +193,11 @@ public class GameScreen extends ScreenAdapter {
                 return;
             }
             removeDeadEnemies();
-            if (transitioning) {
+            if (transitioning || revivePromptVisible) {
                 renderGame();
                 return;
             }
             resolvePlayerDeath();
-            updateLastSafePosition();
         }
         damageNumberManager.update(delta);
 
@@ -225,7 +241,7 @@ public class GameScreen extends ScreenAdapter {
         damageNumberManager.render(game.getBatch(), game.getFont());
         float hudY = 466f;
         String hud = "HP " + (int) player.getHp() + "/" + (int) player.getMaxHp()
-            + "   COINS " + player.getCoins() + "/" + player.getReviveCost()
+            + "   COINS " + player.getCoins() + "/" + REVIVE_COST
             + "   " + buildReviveStatus()
             + "   ROOM " + roomNumber
             + "   WAVE " + levelManager.getCurrentWave()
@@ -248,6 +264,7 @@ public class GameScreen extends ScreenAdapter {
         game.getBatch().end();
 
         drawFadeOverlay();
+        drawRevivePrompt();
     }
 
     private void updateScreenTransition(float delta) {
@@ -678,10 +695,10 @@ public class GameScreen extends ScreenAdapter {
     }
 
     private String buildReviveStatus() {
-        if (player.isReviveUsed()) {
+        if (reviveUsed || player.isReviveUsed()) {
             return "REVIVE USED";
         }
-        if (player.getCoins() >= player.getReviveCost()) {
+        if (player.getCoins() >= REVIVE_COST) {
             return "REVIVE READY";
         }
         return "REVIVE LOCKED";
@@ -733,11 +750,12 @@ public class GameScreen extends ScreenAdapter {
     }
 
     private void handlePlayerDied(GameEvent event) {
-        if (transitioning) {
+        if (transitioning || revivePromptVisible) {
             return;
         }
 
-        if (tryRevivePlayer()) {
+        if (canRevive()) {
+            showRevivePrompt();
             return;
         }
 
@@ -745,11 +763,12 @@ public class GameScreen extends ScreenAdapter {
     }
 
     private void resolvePlayerDeath() {
-        if (transitioning || playerDeathPosted || player.getHp() > 0f) {
+        if (transitioning || revivePromptVisible || playerDeathPosted || player.getHp() > 0f) {
             return;
         }
 
-        if (tryRevivePlayer()) {
+        if (canRevive()) {
+            showRevivePrompt();
             return;
         }
 
@@ -757,23 +776,68 @@ public class GameScreen extends ScreenAdapter {
         eventBus.post(GameEvent.Type.PLAYER_DIED);
     }
 
-    private boolean tryRevivePlayer() {
-        if (!player.tryReviveAt(lastSafeX, lastSafeY, REVIVE_HP_PERCENT)) {
-            return false;
-        }
-
-        playerDeathPosted = false;
-        updateLastSafePosition();
-        return true;
+    private boolean canRevive() {
+        return !reviveUsed && !player.isReviveUsed() && player.getCoins() >= REVIVE_COST;
     }
 
-    private void updateLastSafePosition() {
-        if (player.getHp() <= 0f) {
+    private void showRevivePrompt() {
+        if (revivePromptVisible) {
             return;
         }
 
-        lastSafeX = player.getX();
-        lastSafeY = player.getY();
+        deathX = player.getX();
+        deathY = player.getY();
+        playerDeathPosted = true;
+        revivePromptVisible = true;
+    }
+
+    private void handleRevivePromptInput() {
+        if (!Gdx.input.justTouched()) {
+            return;
+        }
+
+        Vector2 touch = game.screenToWorld(Gdx.input.getX(), Gdx.input.getY());
+        if (reviveButton.contains(touch)) {
+            revivePlayer();
+        }
+    }
+
+    private void revivePlayer() {
+        if (!canRevive() || !player.spendCoins(REVIVE_COST)) {
+            return;
+        }
+
+        reviveUsed = true;
+        player.setReviveUsed(true);
+        revivePromptVisible = false;
+        playerDeathPosted = false;
+        player.reviveAt(deathX, deathY, REVIVE_HP_PERCENT);
+    }
+
+    private void drawRevivePrompt() {
+        if (!revivePromptVisible) {
+            return;
+        }
+
+        Vector2 mouse = game.screenToWorld(Gdx.input.getX(), Gdx.input.getY());
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapeRenderer.setProjectionMatrix(game.getBatch().getProjectionMatrix());
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0f, 0f, 0f, 0.68f);
+        shapeRenderer.rect(0f, 0f, ARENA_WIDTH, ARENA_HEIGHT);
+        ArenaUi.drawPanel(shapeRenderer, revivePanel, ArenaUi.INK, ArenaUi.RED);
+        ArenaUi.drawButton(shapeRenderer, reviveButton, ArenaUi.GREEN, reviveButton.contains(mouse));
+        shapeRenderer.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+
+        game.getBatch().begin();
+        ArenaUi.drawCentered(game.getFont(), game.getBatch(), "YOU DIED", ARENA_WIDTH / 2f, 304f, 1.65f, ArenaUi.PALE_GOLD);
+        ArenaUi.drawCentered(game.getFont(), game.getBatch(), "REVIVE FOR " + REVIVE_COST + " COINS", ARENA_WIDTH / 2f, 266f, 0.92f, ArenaUi.GOLD);
+        ArenaUi.drawCentered(game.getFont(), game.getBatch(), "COINS: " + player.getCoins(), ARENA_WIDTH / 2f, 244f, 0.78f, ArenaUi.BONE);
+        ArenaUi.drawCentered(game.getFont(), game.getBatch(), "REVIVE", reviveButton.x + reviveButton.width / 2f, 220f, 1.02f, ArenaUi.BONE);
+        game.getBatch().end();
     }
 
     private void createPortal() {
