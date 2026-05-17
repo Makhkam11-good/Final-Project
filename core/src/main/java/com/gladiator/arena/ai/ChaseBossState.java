@@ -22,7 +22,7 @@ public class ChaseBossState implements BossState {
         boss.moveTowardTarget(playerX, playerY, delta, boss.getChaseSpeed());
         timer -= delta;
         if (timer <= 0f) {
-            boss.changeState(boss.getDashState());
+            boss.changeState(boss.getTelegraphState());
         }
     }
 

@@ -19,6 +19,7 @@ import com.gladiator.arena.factories.EnemyFactory;
 import com.gladiator.arena.factories.GoblinFactory;
 import com.gladiator.arena.factories.SlimeFactory;
 import com.gladiator.arena.managers.AssetManager;
+import com.gladiator.arena.managers.DamageNumberManager;
 import com.gladiator.arena.managers.GameManager;
 import com.gladiator.arena.managers.GameStateManager;
 import com.gladiator.arena.managers.LevelManager;
@@ -52,6 +53,7 @@ public class GameScreen extends ScreenAdapter {
     private final GameManager gameManager;
     private final EventBus eventBus;
     private final LevelManager levelManager;
+    private final DamageNumberManager damageNumberManager;
     private final AssetManager assets;
     private final EventListener waveClearedListener;
     private final EventListener playerDiedListener;
@@ -80,6 +82,7 @@ public class GameScreen extends ScreenAdapter {
         this.gameManager = GameManager.getInstance();
         this.eventBus = EventBus.getInstance();
         this.levelManager = new LevelManager(eventBus);
+        this.damageNumberManager = new DamageNumberManager(eventBus);
         this.assets = AssetManager.getInstance();
         this.waveClearedListener = this::handleWaveCleared;
         this.playerDiedListener = this::handlePlayerDied;
@@ -110,6 +113,7 @@ public class GameScreen extends ScreenAdapter {
 
         updateSpawning(delta);
         updateEnemies(delta);
+        damageNumberManager.update(delta);
         if (transitioning) {
             return;
         }
@@ -137,6 +141,7 @@ public class GameScreen extends ScreenAdapter {
         player.render(game.getBatch(), assets);
         game.getBatch().end();
 
+        drawBossDashTelegraph();
         drawHudPanel();
         drawCharacterHealthBars();
         drawAttackEffect();
@@ -144,6 +149,7 @@ public class GameScreen extends ScreenAdapter {
         drawAttackCooldownBar();
 
         game.getBatch().begin();
+        damageNumberManager.render(game.getBatch(), game.getFont());
         float hudX = 20f;
         float hudY = 466f;
         String hud = "HP " + (int) player.getHp() + "/" + (int) player.getMaxHp()
@@ -162,6 +168,28 @@ public class GameScreen extends ScreenAdapter {
         ArenaUi.drawText(game.getFont(), game.getBatch(), buildWaveProgressText(), PROGRESS_BAR_X, PROGRESS_BAR_Y - 8f, 0.78f, ArenaUi.GOLD);
         ArenaUi.drawText(game.getFont(), game.getBatch(), buildAttackCooldownText(), ATTACK_BAR_X, ATTACK_BAR_Y - 8f, 0.78f, ArenaUi.GOLD);
         game.getBatch().end();
+    }
+
+    private void drawBossDashTelegraph() {
+        if (activeBoss == null || activeBoss.isDead() || !activeBoss.isDashTelegraphVisible()) {
+            return;
+        }
+
+        float startX = activeBoss.getCenterX();
+        float startY = activeBoss.getCenterY();
+        float endX = startX + activeBoss.getPreparedDashX() * ARENA_WIDTH;
+        float endY = startY + activeBoss.getPreparedDashY() * ARENA_WIDTH;
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapeRenderer.setProjectionMatrix(game.getBatch().getProjectionMatrix());
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(1f, 0.05f, 0.02f, 0.18f);
+        shapeRenderer.rectLine(startX, startY, endX, endY, 32f);
+        shapeRenderer.setColor(1f, 0.16f, 0.08f, 0.88f);
+        shapeRenderer.rectLine(startX, startY, endX, endY, 5f);
+        shapeRenderer.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
     }
 
     private void drawHudPanel() {
@@ -497,6 +525,7 @@ public class GameScreen extends ScreenAdapter {
         eventBus.unsubscribe(GameEvent.Type.PLAYER_DIED, playerDiedListener);
         eventBus.unsubscribe(GameEvent.Type.BOSS_DIED, bossDiedListener);
         levelManager.dispose();
+        damageNumberManager.dispose();
         shapeRenderer.dispose();
     }
 }

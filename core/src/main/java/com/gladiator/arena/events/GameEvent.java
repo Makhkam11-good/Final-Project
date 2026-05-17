@@ -3,6 +3,7 @@ package com.gladiator.arena.events;
 public class GameEvent {
     public enum Type {
         ENEMY_DIED,
+        ENEMY_DAMAGED,
         WAVE_CLEARED,
         PLAYER_HURT,
         PLAYER_DIED,

@@ -20,8 +20,14 @@ public class DashBossState implements BossState {
     public void enter() {
         timer = DURATION;
         dashHitRegistered = false;
-        directionLocked = false;
-        dashDirection.setZero();
+        directionLocked = true;
+        dashDirection.set(boss.getPreparedDashX(), boss.getPreparedDashY());
+        if (dashDirection.isZero(0.001f)) {
+            dashDirection.set(1f, 0f);
+        } else {
+            dashDirection.nor();
+        }
+        boss.clearDashTelegraph();
     }
 
     @Override
@@ -46,6 +52,7 @@ public class DashBossState implements BossState {
 
     @Override
     public void exit() {
+        boss.clearDashTelegraph();
     }
 
     private void lockDashDirection(float playerX, float playerY) {

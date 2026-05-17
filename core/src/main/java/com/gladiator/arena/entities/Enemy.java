@@ -5,6 +5,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
+import com.gladiator.arena.events.EnemyDamagedEvent;
 import com.gladiator.arena.events.EventBus;
 import com.gladiator.arena.events.GameEvent;
 import com.gladiator.arena.managers.AssetManager;
@@ -108,8 +109,16 @@ public abstract class Enemy {
             return;
         }
 
+        float previousHp = hp;
         hp = Math.max(0f, hp - amount);
+        float actualDamage = previousHp - hp;
         hitFlashTimer = HIT_FLASH_DURATION;
+        if (actualDamage > 0f) {
+            EventBus.getInstance().post(new GameEvent(
+                GameEvent.Type.ENEMY_DAMAGED,
+                new EnemyDamagedEvent(getCenterX(), y + spriteHeight, actualDamage)
+            ));
+        }
         if (hp <= 0f) {
             startDying();
         }

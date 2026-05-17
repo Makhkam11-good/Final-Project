@@ -5,6 +5,7 @@ import com.gladiator.arena.ai.BossState;
 import com.gladiator.arena.ai.ChaseBossState;
 import com.gladiator.arena.ai.DashBossState;
 import com.gladiator.arena.ai.IdleBossState;
+import com.gladiator.arena.ai.TelegraphBossState;
 import com.gladiator.arena.events.EventBus;
 import com.gladiator.arena.events.GameEvent;
 
@@ -24,9 +25,13 @@ public class Boss extends Enemy {
 
     private final BossState idleState;
     private final BossState chaseState;
+    private final BossState telegraphState;
     private final BossState dashState;
     private BossState currentState;
     private Player targetPlayer;
+    private float preparedDashX = 1f;
+    private float preparedDashY;
+    private boolean dashTelegraphVisible;
 
     public Boss(float x, float y) {
         super(
@@ -46,6 +51,7 @@ public class Boss extends Enemy {
         );
         idleState = new IdleBossState(this);
         chaseState = new ChaseBossState(this);
+        telegraphState = new TelegraphBossState(this);
         dashState = new DashBossState(this);
         changeState(idleState);
     }
@@ -93,6 +99,10 @@ public class Boss extends Enemy {
         return dashState;
     }
 
+    public BossState getTelegraphState() {
+        return telegraphState;
+    }
+
     public float getChaseSpeed() {
         return speed;
     }
@@ -103,6 +113,31 @@ public class Boss extends Enemy {
 
     public float getDashDamage() {
         return damage;
+    }
+
+    public void setPreparedDashDirection(float directionX, float directionY) {
+        preparedDashX = directionX;
+        preparedDashY = directionY;
+    }
+
+    public float getPreparedDashX() {
+        return preparedDashX;
+    }
+
+    public float getPreparedDashY() {
+        return preparedDashY;
+    }
+
+    public boolean isDashTelegraphVisible() {
+        return dashTelegraphVisible;
+    }
+
+    public void setDashTelegraphVisible(boolean dashTelegraphVisible) {
+        this.dashTelegraphVisible = dashTelegraphVisible;
+    }
+
+    public void clearDashTelegraph() {
+        dashTelegraphVisible = false;
     }
 
     public void moveTowardTarget(float targetX, float targetY, float delta, float moveSpeed) {
@@ -130,6 +165,7 @@ public class Boss extends Enemy {
 
     @Override
     protected void onWaveSpawn() {
+        clearDashTelegraph();
         changeState(idleState);
     }
 
