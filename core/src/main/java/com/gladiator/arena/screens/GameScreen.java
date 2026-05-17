@@ -9,6 +9,7 @@ import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.gladiator.arena.GladiatorGame;
 import com.gladiator.arena.entities.Boss;
+import com.gladiator.arena.entities.Coin;
 import com.gladiator.arena.entities.Enemy;
 import com.gladiator.arena.entities.Player;
 import com.gladiator.arena.events.EventBus;
@@ -62,6 +63,7 @@ public class GameScreen extends ScreenAdapter {
     private final EventListener bossDiedListener;
     private final Player player;
     private final List<Enemy> enemies = new ArrayList<>();
+    private final List<Coin> coins = new ArrayList<>();
     private final List<EnemyFactory> pendingSpawnFactories = new ArrayList<>();
     private final EnemyFactory slimeFactory = new SlimeFactory();
     private final EnemyFactory goblinFactory = new GoblinFactory();
@@ -70,6 +72,7 @@ public class GameScreen extends ScreenAdapter {
     private Boss activeBoss;
     private LevelManager.WaveSummary pendingWaveSummary;
     private int score;
+    private int coinCount;
     private int enemiesRemainingToSpawn;
     private float spawnTimer;
     private float waveCompleteTimer;
@@ -84,6 +87,10 @@ public class GameScreen extends ScreenAdapter {
     }
 
     public GameScreen(GladiatorGame game, Player player, int waveNumber, int score) {
+        this(game, player, waveNumber, score, 0);
+    }
+
+    public GameScreen(GladiatorGame game, Player player, int waveNumber, int score, int coinCount) {
         this.game = game;
         this.gameManager = GameManager.getInstance();
         this.eventBus = EventBus.getInstance();
@@ -95,6 +102,7 @@ public class GameScreen extends ScreenAdapter {
         this.bossDiedListener = this::handleBossDied;
         this.player = player == null ? new Player() : player;
         this.score = score;
+        this.coinCount = Math.max(0, coinCount);
 
         eventBus.subscribe(GameEvent.Type.WAVE_CLEARED, waveClearedListener);
         eventBus.subscribe(GameEvent.Type.PLAYER_DIED, playerDiedListener);
@@ -119,7 +127,12 @@ public class GameScreen extends ScreenAdapter {
 
         if (waveCompletePending) {
             updateWaveCompleteTransition(delta);
+            if (transitioning) {
+                return;
+            }
             damageNumberManager.update(delta);
+            player.update(delta, enemies);
+            updateCoins(delta);
             if (transitioning) {
                 return;
             }
@@ -132,6 +145,7 @@ public class GameScreen extends ScreenAdapter {
             }
 
             player.update(delta, enemies);
+            updateCoins(delta);
             removeDeadEnemies();
             if (transitioning) {
                 return;
@@ -156,6 +170,7 @@ public class GameScreen extends ScreenAdapter {
         game.getBatch().end();
 
         drawBossDashTelegraph();
+        drawCoins();
         drawHudPanel();
         drawCharacterHealthBars();
         drawAttackEffect();
@@ -169,6 +184,7 @@ public class GameScreen extends ScreenAdapter {
         String hud = "HP " + (int) player.getHp() + "/" + (int) player.getMaxHp()
             + "   WAVE " + levelManager.getCurrentWave()
             + "   SCORE " + score
+            + "   COINS: " + coinCount
             + "   " + gameManager.getDifficultyName().toUpperCase(Locale.ROOT)
             + "   SPACE ATK"
             + "   ESC PAUSE";
@@ -423,6 +439,7 @@ public class GameScreen extends ScreenAdapter {
             }
 
             score += enemy.getScoreReward();
+            dropCoins(enemy);
             iterator.remove();
             if (enemy == activeBoss) {
                 activeBoss = null;
@@ -440,6 +457,48 @@ public class GameScreen extends ScreenAdapter {
                 return;
             }
         }
+    }
+
+    private void updateCoins(float delta) {
+        Iterator<Coin> iterator = coins.iterator();
+        while (iterator.hasNext()) {
+            Coin coin = iterator.next();
+            coin.update(delta);
+            if (player.getHp() > 0f && coin.overlaps(player)) {
+                coin.collect();
+                coinCount += coin.getValue();
+            }
+            if (coin.isCollected()) {
+                iterator.remove();
+            }
+        }
+    }
+
+    private void drawCoins() {
+        if (coins.isEmpty()) {
+            return;
+        }
+
+        shapeRenderer.setProjectionMatrix(game.getBatch().getProjectionMatrix());
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        for (Coin coin : coins) {
+            coin.render(shapeRenderer);
+        }
+        shapeRenderer.end();
+    }
+
+    private void dropCoins(Enemy enemy) {
+        coins.add(new Coin(enemy.getCenterX(), enemy.getCenterY(), getCoinDropValue(enemy)));
+    }
+
+    private int getCoinDropValue(Enemy enemy) {
+        if (enemy instanceof Boss) {
+            return 10;
+        }
+        if (enemy.getScoreReward() >= 25) {
+            return 2;
+        }
+        return 1;
     }
 
     private void drawAttackCooldownBar() {
@@ -498,7 +557,7 @@ public class GameScreen extends ScreenAdapter {
 
     private void openUpgradeScreen() {
         transitioning = true;
-        game.setScreen(new UpgradeScreen(game, player, pendingWaveSummary, score));
+        game.setScreen(new UpgradeScreen(game, player, pendingWaveSummary, score, coinCount));
         dispose();
     }
 
