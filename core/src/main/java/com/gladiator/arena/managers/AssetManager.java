@@ -105,6 +105,16 @@ public final class AssetManager {
         }
     }
 
+    public float getAnimationDuration(String key, float fallbackDuration) {
+        loadGameAssets();
+        Animation<TextureRegion> animation = animations.get(key);
+        if (animation == null) {
+            return fallbackDuration;
+        }
+
+        return animation.getAnimationDuration();
+    }
+
     public void dispose() {
         animations.clear();
         gameAtlas = null;

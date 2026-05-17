@@ -39,6 +39,10 @@ public class GameScreen extends ScreenAdapter {
     private static final float PROGRESS_BAR_Y = 420f;
     private static final float PROGRESS_BAR_WIDTH = 270f;
     private static final float PROGRESS_BAR_HEIGHT = 8f;
+    private static final float ATTACK_BAR_X = 608f;
+    private static final float ATTACK_BAR_Y = 420f;
+    private static final float ATTACK_BAR_WIDTH = 172f;
+    private static final float ATTACK_BAR_HEIGHT = 8f;
     private static final float HEALTH_BAR_HEIGHT = 5f;
     private static final float HEALTH_BAR_OFFSET_Y = 6f;
     private static final float PLAYER_HEALTH_BAR_WIDTH = 44f;
@@ -137,6 +141,7 @@ public class GameScreen extends ScreenAdapter {
         drawCharacterHealthBars();
         drawAttackEffect();
         drawWaveProgressBar();
+        drawAttackCooldownBar();
 
         game.getBatch().begin();
         float hudX = 20f;
@@ -155,6 +160,7 @@ public class GameScreen extends ScreenAdapter {
                 + " (" + (int) (bossHpPercent * 100f) + "%)", 400f, 28f, 0.86f, ArenaUi.PALE_GOLD);
         }
         ArenaUi.drawText(game.getFont(), game.getBatch(), buildWaveProgressText(), PROGRESS_BAR_X, PROGRESS_BAR_Y - 8f, 0.78f, ArenaUi.GOLD);
+        ArenaUi.drawText(game.getFont(), game.getBatch(), buildAttackCooldownText(), ATTACK_BAR_X, ATTACK_BAR_Y - 8f, 0.78f, ArenaUi.GOLD);
         game.getBatch().end();
     }
 
@@ -368,6 +374,9 @@ public class GameScreen extends ScreenAdapter {
             if (!enemy.isDead()) {
                 continue;
             }
+            if (!enemy.isReadyToRemove()) {
+                continue;
+            }
 
             score += enemy.getScoreReward();
             iterator.remove();
@@ -387,6 +396,31 @@ public class GameScreen extends ScreenAdapter {
                 return;
             }
         }
+    }
+
+    private void drawAttackCooldownBar() {
+        float progress = player.getAttackReadyProgress();
+        shapeRenderer.setProjectionMatrix(game.getBatch().getProjectionMatrix());
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        ArenaUi.drawProgressBar(
+            shapeRenderer,
+            ATTACK_BAR_X,
+            ATTACK_BAR_Y,
+            ATTACK_BAR_WIDTH,
+            ATTACK_BAR_HEIGHT,
+            progress,
+            progress >= 1f ? ArenaUi.GREEN : ArenaUi.GOLD
+        );
+        shapeRenderer.end();
+    }
+
+    private String buildAttackCooldownText() {
+        float progress = player.getAttackReadyProgress();
+        if (progress >= 1f) {
+            return "Attack: READY";
+        }
+
+        return "Attack: " + (int) (progress * 100f) + "%";
     }
 
     private Enemy createAtRandomEdge(EnemyFactory factory) {

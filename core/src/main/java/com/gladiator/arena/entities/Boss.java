@@ -54,7 +54,11 @@ public class Boss extends Enemy {
     public void update(float delta, Player player) {
         stateTime += delta;
         updateHitFlash(delta);
-        if (player == null || isDead()) {
+        if (isDead()) {
+            updateDeathTimer(delta);
+            return;
+        }
+        if (player == null) {
             return;
         }
 

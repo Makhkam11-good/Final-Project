@@ -31,6 +31,7 @@ public class Player {
     private static final float ATTACK_STATE_DURATION = 0.18f;
     private static final float ATTACK_EFFECT_DURATION = 0.22f;
     private static final float ATTACK_RADIUS = 80f;
+    private static final float ATTACK_CONE_COS = 0.45f;
     private static final float DAMAGE_COOLDOWN = 0.65f;
     private static final float DAMAGE_FLASH_DURATION = 0.18f;
     private static final Color DAMAGE_FLASH_COLOR = new Color(1f, 0.46f, 0.46f, 1f);
@@ -212,6 +213,15 @@ public class Player {
         return stats.getAttackCooldown();
     }
 
+    public float getAttackReadyProgress() {
+        float cooldown = stats.getAttackCooldown();
+        if (cooldown <= 0f) {
+            return 1f;
+        }
+
+        return MathUtils.clamp(1f - attackTimer / cooldown, 0f, 1f);
+    }
+
     public float getIncomingDamageMultiplier() {
         return stats.getIncomingDamageMultiplier();
     }
@@ -365,7 +375,13 @@ public class Player {
                 continue;
             }
 
-            float distance = Vector2.dst(centerX, centerY, enemy.getCenterX(), enemy.getCenterY());
+            float targetX = enemy.getCenterX();
+            float targetY = enemy.getCenterY();
+            float distance = Vector2.dst(centerX, centerY, targetX, targetY);
+            if (!isInsideAttackCone(targetX - centerX, targetY - centerY, distance)) {
+                continue;
+            }
+
             if (distance <= bestDistance) {
                 bestDistance = distance;
                 closest = enemy;
@@ -373,5 +389,17 @@ public class Player {
         }
 
         return closest;
+    }
+
+    private boolean isInsideAttackCone(float targetX, float targetY, float distance) {
+        if (distance > ATTACK_RADIUS) {
+            return false;
+        }
+        if (distance <= 0.001f) {
+            return true;
+        }
+
+        float dot = (targetX / distance) * facingX + (targetY / distance) * facingY;
+        return dot >= ATTACK_CONE_COS;
     }
 }

@@ -13,6 +13,7 @@ public abstract class Enemy {
     protected static final float ARENA_WIDTH = 800f;
     protected static final float ARENA_HEIGHT = 480f;
     private static final float HIT_FLASH_DURATION = 0.12f;
+    private static final float FALLBACK_DEATH_DURATION = 0.45f;
     private static final Color HIT_FLASH_COLOR = new Color(1f, 0.88f, 0.42f, 1f);
 
     protected final Rectangle bounds = new Rectangle();
@@ -31,6 +32,8 @@ public abstract class Enemy {
     protected int scoreReward;
     protected Color renderColor;
     protected float stateTime;
+    private float deathTimer;
+    private boolean dying;
     private float hitFlashTimer;
 
     protected Enemy(
@@ -72,6 +75,11 @@ public abstract class Enemy {
     public void update(float delta, Player player) {
         stateTime += delta;
         updateHitFlash(delta);
+        if (dying) {
+            updateDeathTimer(delta);
+            return;
+        }
+
         updateMovement(delta, player);
         clampToArena();
         updateBounds();
@@ -96,16 +104,23 @@ public abstract class Enemy {
     }
 
     public void takeDamage(float amount) {
-        if (amount <= 0f || isDead()) {
+        if (amount <= 0f || dying) {
             return;
         }
 
         hp = Math.max(0f, hp - amount);
         hitFlashTimer = HIT_FLASH_DURATION;
+        if (hp <= 0f) {
+            startDying();
+        }
     }
 
     public boolean isDead() {
-        return hp <= 0f;
+        return dying;
+    }
+
+    public boolean isReadyToRemove() {
+        return dying && deathTimer <= 0f;
     }
 
     public int getScoreReward() {
@@ -200,6 +215,23 @@ public abstract class Enemy {
         if (hitFlashTimer < 0f) {
             hitFlashTimer = 0f;
         }
+    }
+
+    protected void updateDeathTimer(float delta) {
+        deathTimer -= delta;
+        if (deathTimer < 0f) {
+            deathTimer = 0f;
+        }
+    }
+
+    private void startDying() {
+        dying = true;
+        hitFlashTimer = 0f;
+        stateTime = 0f;
+        deathTimer = AssetManager.getInstance().getAnimationDuration(
+            getSpriteKey() + ".dead",
+            FALLBACK_DEATH_DURATION
+        );
     }
 
     protected abstract void onWaveSpawn();
