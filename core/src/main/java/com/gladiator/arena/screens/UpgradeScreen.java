@@ -111,8 +111,8 @@ public class UpgradeScreen extends ScreenAdapter {
         this.enemiesKilled = enemiesKilled;
         this.score = score;
         this.roomNumber = Math.max(1, roomNumber);
-        this.coinCount = Math.max(0, coinCount);
-        this.reviveUsed = reviveUsed;
+        this.coinCount = player == null ? Math.max(0, coinCount) : player.getCoins();
+        this.reviveUsed = player == null ? reviveUsed : player.isReviveUsed();
         selectRandomCards();
         createCardBounds();
     }

@@ -164,10 +164,22 @@ public class GameScreen extends ScreenAdapter {
         if (!transitioning) {
             updateSpawning(delta);
             updateEnemies(delta);
-            updateCoins(delta);
+            if (transitioning) {
+                renderGame();
+                return;
+            }
             player.update(delta, enemies);
+            updateCoins(delta);
             updatePortal(delta);
+            if (transitioning) {
+                renderGame();
+                return;
+            }
             removeDeadEnemies();
+            if (transitioning) {
+                renderGame();
+                return;
+            }
             resolvePlayerDeath();
             updateLastSafePosition();
         }
