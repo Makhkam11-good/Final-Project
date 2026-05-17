@@ -12,6 +12,7 @@ import com.gladiator.arena.entities.Boss;
 import com.gladiator.arena.entities.Coin;
 import com.gladiator.arena.entities.Enemy;
 import com.gladiator.arena.entities.Player;
+import com.gladiator.arena.entities.Portal;
 import com.gladiator.arena.events.EventBus;
 import com.gladiator.arena.events.EventListener;
 import com.gladiator.arena.events.GameEvent;
@@ -33,7 +34,10 @@ import java.util.Locale;
 
 public class GameScreen extends ScreenAdapter {
     private static final int FINAL_WAVE = 10;
-    private static final int REVIVE_COST = 25;
+    private static final int ROOM_ONE_BOSS_WAVE = 5;
+    private static final int ROOM_TWO_START_WAVE = 6;
+    private static final float SCREEN_TRANSITION_DELAY = 0.72f;
+    private static final float REVIVE_HP_PERCENT = 0.5f;
     private static final float ARENA_WIDTH = 800f;
     private static final float ARENA_HEIGHT = 480f;
     private static final float DEFAULT_ENEMY_WIDTH = 32f;
@@ -50,10 +54,6 @@ public class GameScreen extends ScreenAdapter {
     private static final float HEALTH_BAR_OFFSET_Y = 6f;
     private static final float PLAYER_HEALTH_BAR_WIDTH = 44f;
     private static final float MIN_ENEMY_HEALTH_BAR_WIDTH = 34f;
-    private static final float WAVE_COMPLETE_DELAY = 1.0f;
-    private static final float WAVE_COMPLETE_FADE_ALPHA = 0.6f;
-    private static final float REVIVE_HP_PERCENT = 0.5f;
-    private static final float REVIVE_INVULNERABILITY = 1.35f;
 
     private final GladiatorGame game;
     private final GameManager gameManager;
@@ -73,27 +73,32 @@ public class GameScreen extends ScreenAdapter {
     private final EnemyFactory bossFactory = new BossFactory();
     private final ShapeRenderer shapeRenderer = new ShapeRenderer();
     private Boss activeBoss;
-    private LevelManager.WaveSummary pendingWaveSummary;
+    private Portal portal;
     private int score;
-    private int coinCount;
     private int enemiesRemainingToSpawn;
     private float spawnTimer;
-    private float waveCompleteTimer;
-    private float transitionAlpha;
+    private float screenTransitionTimer;
     private float lastSafeX;
     private float lastSafeY;
     private boolean disposed;
     private boolean transitioning;
     private boolean playerDeathPosted;
-    private boolean waveCompletePending;
-    private boolean reviveUsed;
+    private PendingTransition pendingTransition = PendingTransition.NONE;
+
+    private enum PendingTransition {
+        NONE,
+        UPGRADE,
+        GAME_OVER,
+        VICTORY,
+        ROOM_TWO
+    }
 
     public GameScreen(GladiatorGame game) {
         this(game, new Player(), 1, 0);
     }
 
     public GameScreen(GladiatorGame game, Player player, int waveNumber, int score) {
-        this(game, player, waveNumber, score, 0);
+        this(game, player, waveNumber, score, 0, false);
     }
 
     public GameScreen(GladiatorGame game, Player player, int waveNumber, int score, int coinCount) {
@@ -112,14 +117,13 @@ public class GameScreen extends ScreenAdapter {
         this.bossDiedListener = this::handleBossDied;
         this.player = player == null ? new Player() : player;
         this.score = score;
-        this.coinCount = Math.max(0, coinCount);
-        this.reviveUsed = reviveUsed;
         updateLastSafePosition();
 
         eventBus.subscribe(GameEvent.Type.WAVE_CLEARED, waveClearedListener);
         eventBus.subscribe(GameEvent.Type.PLAYER_DIED, playerDiedListener);
         eventBus.subscribe(GameEvent.Type.BOSS_DIED, bossDiedListener);
         int safeWaveNumber = Math.max(1, Math.min(waveNumber, FINAL_WAVE));
+        playerDeathPosted = this.player.getHp() <= 0f;
         int enemiesInWave = prepareWaveSpawns(safeWaveNumber);
         levelManager.startWave(safeWaveNumber, enemiesInWave);
     }
@@ -131,55 +135,58 @@ public class GameScreen extends ScreenAdapter {
 
     @Override
     public void render(float delta) {
-        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+        if (transitioning) {
+            updateScreenTransition(delta);
+        }
+
+        if (!transitioning && Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
             gameManager.getGameStateManager().push(GameStateManager.State.PAUSE);
             game.setScreen(new PauseScreen(game, this));
             return;
         }
 
-        if (waveCompletePending) {
-            updateWaveCompleteTransition(delta);
-            if (transitioning) {
-                return;
-            }
-            damageNumberManager.update(delta);
-            player.update(delta, enemies);
-            updateCoins(delta);
-            resolvePlayerDeath();
-            if (transitioning) {
-                return;
-            }
-            updateLastSafePosition();
-        } else {
-            updateLastSafePosition();
+        if (!transitioning) {
             updateSpawning(delta);
             updateEnemies(delta);
-            damageNumberManager.update(delta);
-            if (transitioning) {
-                return;
-            }
-
-            player.update(delta, enemies);
             updateCoins(delta);
+            updatePortal(delta);
+            player.update(delta, enemies);
             removeDeadEnemies();
             resolvePlayerDeath();
-            if (transitioning) {
-                return;
-            }
             updateLastSafePosition();
         }
+        damageNumberManager.update(delta);
 
-        ScreenUtils.clear(0.08f, 0.07f, 0.06f, 1f);
+        renderGame();
+    }
+
+    private void renderGame() {
+        float roomDarkness = isRoomTwo() ? 0.55f : 1f;
+        ScreenUtils.clear(0.08f * roomDarkness, 0.07f * roomDarkness, 0.06f * roomDarkness, 1f);
+
         game.getBatch().begin();
         assets.drawTiledFloor(game.getBatch(), ARENA_WIDTH, ARENA_HEIGHT);
+        game.getBatch().end();
+
+        if (isRoomTwo()) {
+            drawRoomTwoOverlay();
+        }
+
+        game.getBatch().begin();
+        for (Coin coin : coins) {
+            coin.render(game.getBatch(), assets);
+        }
+        if (portal != null) {
+            portal.render(game.getBatch(), assets);
+        }
         for (Enemy enemy : enemies) {
             enemy.render(game.getBatch(), assets);
         }
         player.render(game.getBatch(), assets);
         game.getBatch().end();
 
+        drawEntityFallbacks();
         drawBossDashTelegraph();
-        drawCoins();
         drawHudPanel();
         drawCharacterHealthBars();
         drawAttackEffect();
@@ -191,10 +198,11 @@ public class GameScreen extends ScreenAdapter {
         float hudX = 20f;
         float hudY = 466f;
         String hud = "HP " + (int) player.getHp() + "/" + (int) player.getMaxHp()
-            + "   WAVE " + levelManager.getCurrentWave()
-            + "   SCORE " + score
-            + "   COINS " + coinCount + "/" + REVIVE_COST
+            + "   COINS " + player.getCoins() + "/" + player.getReviveCost()
             + "   " + buildReviveStatus()
+            + "   WAVE " + levelManager.getCurrentWave()
+            + "   ROOM " + getRoomNumber()
+            + "   SCORE " + score
             + "   " + gameManager.getDifficultyName().toUpperCase(Locale.ROOT)
             + "   SPACE ATK"
             + "   ESC PAUSE";
@@ -207,9 +215,93 @@ public class GameScreen extends ScreenAdapter {
         }
         ArenaUi.drawText(game.getFont(), game.getBatch(), buildWaveProgressText(), PROGRESS_BAR_X, PROGRESS_BAR_Y - 8f, 0.78f, ArenaUi.GOLD);
         ArenaUi.drawText(game.getFont(), game.getBatch(), buildAttackCooldownText(), ATTACK_BAR_X, ATTACK_BAR_Y - 8f, 0.78f, ArenaUi.GOLD);
+        if (player.isInvulnerable()) {
+            ArenaUi.drawCentered(game.getFont(), game.getBatch(), "REVIVED", player.getCenterX(), player.getY() + 72f, 0.72f, ArenaUi.PALE_GOLD);
+        }
         game.getBatch().end();
 
-        drawWaveCompleteTransition();
+        drawFadeOverlay();
+    }
+
+    private void updateScreenTransition(float delta) {
+        screenTransitionTimer -= delta;
+        if (screenTransitionTimer > 0f) {
+            return;
+        }
+
+        PendingTransition next = pendingTransition;
+        pendingTransition = PendingTransition.NONE;
+        transitioning = false;
+
+        if (next == PendingTransition.UPGRADE) {
+            game.setScreen(new UpgradeScreen(game, player, levelManager.getCurrentSummary(), score, player.getCoins(), player.isReviveUsed()));
+            dispose();
+        } else if (next == PendingTransition.GAME_OVER) {
+            game.setScreen(new GameOverScreen(game, levelManager.getCurrentWave(), score));
+            dispose();
+        } else if (next == PendingTransition.VICTORY) {
+            game.setScreen(new VictoryScreen(game, score));
+            dispose();
+        } else if (next == PendingTransition.ROOM_TWO) {
+            game.setScreen(new GameScreen(game, player, ROOM_TWO_START_WAVE, score));
+            dispose();
+        }
+    }
+
+    private void startScreenTransition(PendingTransition next) {
+        if (transitioning) {
+            return;
+        }
+
+        transitioning = true;
+        pendingTransition = next;
+        screenTransitionTimer = SCREEN_TRANSITION_DELAY;
+    }
+
+    private void drawEntityFallbacks() {
+        if (coins.isEmpty() && portal == null) {
+            return;
+        }
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapeRenderer.setProjectionMatrix(game.getBatch().getProjectionMatrix());
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        for (Coin coin : coins) {
+            coin.renderFallback(shapeRenderer);
+        }
+        if (portal != null) {
+            portal.renderFallback(shapeRenderer);
+        }
+        shapeRenderer.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
+    private void drawRoomTwoOverlay() {
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapeRenderer.setProjectionMatrix(game.getBatch().getProjectionMatrix());
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0.02f, 0.025f, 0.05f, 0.38f);
+        shapeRenderer.rect(0f, 0f, ARENA_WIDTH, ARENA_HEIGHT);
+        shapeRenderer.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
+    private void drawFadeOverlay() {
+        if (!transitioning) {
+            return;
+        }
+
+        float alpha = 1f - MathUtils.clamp(screenTransitionTimer / SCREEN_TRANSITION_DELAY, 0f, 1f);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapeRenderer.setProjectionMatrix(game.getBatch().getProjectionMatrix());
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0f, 0f, 0f, 0.72f * alpha);
+        shapeRenderer.rect(0f, 0f, ARENA_WIDTH, ARENA_HEIGHT);
+        shapeRenderer.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
     }
 
     private void drawBossDashTelegraph() {
@@ -352,6 +444,14 @@ public class GameScreen extends ScreenAdapter {
         return MathUtils.clamp(levelManager.getWaveProgress(), 0f, 1f);
     }
 
+    private boolean isRoomTwo() {
+        return levelManager.getCurrentWave() >= ROOM_TWO_START_WAVE;
+    }
+
+    private int getRoomNumber() {
+        return isRoomTwo() ? 2 : 1;
+    }
+
     private String buildWaveProgressText() {
         if (activeBoss != null && activeBoss.getMaxHp() > 0f) {
             return "Wave Progress: Boss " + (int) (getWaveProgress() * 100f) + "%";
@@ -363,8 +463,18 @@ public class GameScreen extends ScreenAdapter {
 
     private int prepareWaveSpawns(int waveNumber) {
         enemies.clear();
+        coins.clear();
         pendingSpawnFactories.clear();
         activeBoss = null;
+        portal = null;
+
+        if (waveNumber == ROOM_ONE_BOSS_WAVE || waveNumber == FINAL_WAVE) {
+            activeBoss = createBossAtEdgeCenter();
+            enemies.add(activeBoss);
+            enemiesRemainingToSpawn = 0;
+            spawnTimer = 0f;
+            return enemies.size();
+        }
 
         if (waveNumber == 1) {
             addPendingEnemies(slimeFactory, 4);
@@ -376,8 +486,6 @@ public class GameScreen extends ScreenAdapter {
         } else if (waveNumber == 4) {
             addPendingEnemies(goblinFactory, 5);
             addPendingEnemies(slimeFactory, 3);
-        } else if (waveNumber == 5) {
-            addPendingEnemies(goblinFactory, 8);
         } else if (waveNumber == 6) {
             addPendingEnemies(goblinFactory, 6);
             addPendingEnemies(slimeFactory, 4);
@@ -388,12 +496,6 @@ public class GameScreen extends ScreenAdapter {
             addPendingEnemies(slimeFactory, 5);
         } else if (waveNumber == 9) {
             addPendingEnemies(goblinFactory, 12);
-        } else {
-            activeBoss = createBossAtEdgeCenter();
-            enemies.add(activeBoss);
-            enemiesRemainingToSpawn = 0;
-            spawnTimer = 0f;
-            return enemies.size();
         }
 
         Collections.shuffle(pendingSpawnFactories);
@@ -426,6 +528,29 @@ public class GameScreen extends ScreenAdapter {
         }
     }
 
+    private void updateCoins(float delta) {
+        Iterator<Coin> iterator = coins.iterator();
+        while (iterator.hasNext()) {
+            Coin coin = iterator.next();
+            coin.update(delta);
+            if (player.getHp() > 0f && coin.overlaps(player)) {
+                player.addCoins(coin.getValue());
+                iterator.remove();
+            }
+        }
+    }
+
+    private void updatePortal(float delta) {
+        if (portal == null) {
+            return;
+        }
+
+        portal.update(delta);
+        if (!transitioning && portal.overlaps(player)) {
+            startScreenTransition(PendingTransition.ROOM_TWO);
+        }
+    }
+
     private void updateEnemies(float delta) {
         for (Enemy enemy : enemies) {
             enemy.update(delta, player);
@@ -448,7 +573,7 @@ public class GameScreen extends ScreenAdapter {
             }
 
             score += enemy.getScoreReward();
-            dropCoins(enemy);
+            dropCoin(enemy);
             iterator.remove();
             if (enemy == activeBoss) {
                 activeBoss = null;
@@ -468,46 +593,18 @@ public class GameScreen extends ScreenAdapter {
         }
     }
 
-    private void updateCoins(float delta) {
-        Iterator<Coin> iterator = coins.iterator();
-        while (iterator.hasNext()) {
-            Coin coin = iterator.next();
-            coin.update(delta);
-            if (player.getHp() > 0f && coin.overlaps(player)) {
-                coin.collect();
-                coinCount += coin.getValue();
-            }
-            if (coin.isCollected()) {
-                iterator.remove();
-            }
-        }
-    }
-
-    private void drawCoins() {
-        if (coins.isEmpty()) {
+    private void dropCoin(Enemy enemy) {
+        if (enemy == null) {
             return;
         }
 
-        shapeRenderer.setProjectionMatrix(game.getBatch().getProjectionMatrix());
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        for (Coin coin : coins) {
-            coin.render(shapeRenderer);
-        }
-        shapeRenderer.end();
-    }
-
-    private void dropCoins(Enemy enemy) {
-        coins.add(new Coin(enemy.getCenterX(), enemy.getCenterY(), getCoinDropValue(enemy)));
-    }
-
-    private int getCoinDropValue(Enemy enemy) {
+        int value = 1;
         if (enemy instanceof Boss) {
-            return 10;
+            value = 10;
+        } else if (enemy.getScoreReward() >= 25) {
+            value = 2;
         }
-        if (enemy.getScoreReward() >= 25) {
-            return 2;
-        }
-        return 1;
+        coins.add(new Coin(enemy.getCenterX(), enemy.getCenterY(), value));
     }
 
     private void drawAttackCooldownBar() {
@@ -536,48 +633,13 @@ public class GameScreen extends ScreenAdapter {
     }
 
     private String buildReviveStatus() {
-        if (reviveUsed) {
+        if (player.isReviveUsed()) {
             return "REVIVE USED";
         }
-        if (coinCount >= REVIVE_COST) {
+        if (player.getCoins() >= player.getReviveCost()) {
             return "REVIVE READY";
         }
         return "REVIVE LOCKED";
-    }
-
-    private void updateWaveCompleteTransition(float delta) {
-        waveCompleteTimer += delta;
-        float progress = MathUtils.clamp(waveCompleteTimer / WAVE_COMPLETE_DELAY, 0f, 1f);
-        transitionAlpha = WAVE_COMPLETE_FADE_ALPHA * progress;
-
-        if (waveCompleteTimer >= WAVE_COMPLETE_DELAY) {
-            openUpgradeScreen();
-        }
-    }
-
-    private void drawWaveCompleteTransition() {
-        if (!waveCompletePending) {
-            return;
-        }
-
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-        shapeRenderer.setProjectionMatrix(game.getBatch().getProjectionMatrix());
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        shapeRenderer.setColor(0f, 0f, 0f, transitionAlpha);
-        shapeRenderer.rect(0f, 0f, ARENA_WIDTH, ARENA_HEIGHT);
-        shapeRenderer.end();
-        Gdx.gl.glDisable(GL20.GL_BLEND);
-
-        game.getBatch().begin();
-        ArenaUi.drawCentered(game.getFont(), game.getBatch(), "WAVE CLEARED", ARENA_WIDTH / 2f, 268f, 1.45f, ArenaUi.PALE_GOLD);
-        game.getBatch().end();
-    }
-
-    private void openUpgradeScreen() {
-        transitioning = true;
-        game.setScreen(new UpgradeScreen(game, player, pendingWaveSummary, score, coinCount, reviveUsed));
-        dispose();
     }
 
     private Enemy createAtRandomEdge(EnemyFactory factory) {
@@ -604,26 +666,11 @@ public class GameScreen extends ScreenAdapter {
     }
 
     private void handleWaveCleared(GameEvent event) {
-        if (transitioning || waveCompletePending) {
+        if (transitioning) {
             return;
         }
 
-        LevelManager.WaveSummary summary = null;
-        if (event.getPayload() instanceof LevelManager.WaveSummary) {
-            summary = (LevelManager.WaveSummary) event.getPayload();
-        }
-
-        if (summary != null && summary.getWaveNumber() >= FINAL_WAVE) {
-            transitioning = true;
-            game.setScreen(new VictoryScreen(game, score));
-            dispose();
-            return;
-        }
-
-        pendingWaveSummary = summary;
-        waveCompletePending = true;
-        waveCompleteTimer = 0f;
-        transitionAlpha = 0f;
+        startScreenTransition(PendingTransition.UPGRADE);
     }
 
     private void handlePlayerDied(GameEvent event) {
@@ -631,9 +678,11 @@ public class GameScreen extends ScreenAdapter {
             return;
         }
 
-        transitioning = true;
-        game.setScreen(new GameOverScreen(game, levelManager.getCurrentWave(), score));
-        dispose();
+        if (tryRevivePlayer()) {
+            return;
+        }
+
+        startScreenTransition(PendingTransition.GAME_OVER);
     }
 
     private void resolvePlayerDeath() {
@@ -650,14 +699,10 @@ public class GameScreen extends ScreenAdapter {
     }
 
     private boolean tryRevivePlayer() {
-        if (reviveUsed || coinCount < REVIVE_COST) {
+        if (!player.tryReviveAt(lastSafeX, lastSafeY, REVIVE_HP_PERCENT)) {
             return false;
         }
 
-        coinCount -= REVIVE_COST;
-        reviveUsed = true;
-        player.reviveAt(lastSafeX, lastSafeY, REVIVE_HP_PERCENT);
-        player.grantInvulnerability(REVIVE_INVULNERABILITY);
         playerDeathPosted = false;
         updateLastSafePosition();
         return true;
@@ -677,9 +722,12 @@ public class GameScreen extends ScreenAdapter {
             return;
         }
 
-        transitioning = true;
-        game.setScreen(new VictoryScreen(game, score));
-        dispose();
+        if (levelManager.getCurrentWave() >= FINAL_WAVE) {
+            startScreenTransition(PendingTransition.VICTORY);
+            return;
+        }
+
+        portal = new Portal(ARENA_WIDTH - 112f, (ARENA_HEIGHT - 82f) / 2f);
     }
 
     @Override

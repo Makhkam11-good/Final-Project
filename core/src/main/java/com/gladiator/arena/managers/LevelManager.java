@@ -29,6 +29,7 @@ public class LevelManager {
     private int currentWave;
     private int enemiesAlive;
     private int enemiesKilledThisWave;
+    private WaveSummary currentSummary;
     private boolean waveActive;
     private boolean disposed;
 
@@ -53,6 +54,7 @@ public class LevelManager {
         currentWave = waveNumber;
         enemiesAlive = enemyCount;
         enemiesKilledThisWave = 0;
+        currentSummary = new WaveSummary(currentWave, enemiesKilledThisWave);
         waveActive = enemyCount > 0;
 
         if (enemyCount == 0) {
@@ -89,6 +91,10 @@ public class LevelManager {
         return waveActive;
     }
 
+    public WaveSummary getCurrentSummary() {
+        return currentSummary;
+    }
+
     public void dispose() {
         if (disposed) {
             return;
@@ -115,7 +121,7 @@ public class LevelManager {
     private void postWaveCleared() {
         eventBus.post(new GameEvent(
             GameEvent.Type.WAVE_CLEARED,
-            new WaveSummary(currentWave, enemiesKilledThisWave)
+            currentSummary = new WaveSummary(currentWave, enemiesKilledThisWave)
         ));
     }
 }

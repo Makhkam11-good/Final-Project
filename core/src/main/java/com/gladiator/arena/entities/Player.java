@@ -34,6 +34,8 @@ public class Player {
     private static final float ATTACK_CONE_COS = 0.45f;
     private static final float DAMAGE_COOLDOWN = 0.65f;
     private static final float DAMAGE_FLASH_DURATION = 0.18f;
+    private static final float REVIVE_INVULNERABILITY_DURATION = 1.8f;
+    private static final int REVIVE_COST = 12;
     private static final Color DAMAGE_FLASH_COLOR = new Color(1f, 0.46f, 0.46f, 1f);
 
     private float x;
@@ -53,6 +55,9 @@ public class Player {
     private float stateTime;
     private float damageCooldownTimer;
     private float damageFlashTimer;
+    private float invulnerabilityTimer;
+    private int coins;
+    private boolean reviveUsed;
 
     private final Rectangle bounds = new Rectangle();
     private PlayerStats stats;
@@ -79,6 +84,7 @@ public class Player {
     public void update(float delta, List<Enemy> enemies) {
         stateTime += delta;
         updateDamageTimers(delta);
+        updateInvulnerabilityTimer(delta);
         if (isDead()) {
             velocityX = 0f;
             velocityY = 0f;
@@ -127,7 +133,7 @@ public class Player {
     }
 
     public boolean takeDamage(float amount) {
-        if (amount <= 0f || damageCooldownTimer > 0f || isDead()) {
+        if (amount <= 0f || damageCooldownTimer > 0f || invulnerabilityTimer > 0f || isDead()) {
             return false;
         }
 
@@ -159,7 +165,7 @@ public class Player {
             return;
         }
 
-        damageCooldownTimer = Math.max(damageCooldownTimer, duration);
+        invulnerabilityTimer = Math.max(invulnerabilityTimer, duration);
         damageFlashTimer = Math.max(damageFlashTimer, DAMAGE_FLASH_DURATION);
     }
 
@@ -178,6 +184,44 @@ public class Player {
 
         hp = MathUtils.clamp(hp, 0f, newMaxHp);
         attackTimer = Math.min(attackTimer, stats.getAttackCooldown());
+    }
+
+    public void addCoins(int amount) {
+        if (amount > 0) {
+            coins += amount;
+        }
+    }
+
+    public boolean tryRevive() {
+        return tryReviveAt(x, y, 0.55f);
+    }
+
+    public boolean tryReviveAt(float reviveX, float reviveY, float hpPercent) {
+        if (reviveUsed || coins < REVIVE_COST) {
+            return false;
+        }
+
+        coins -= REVIVE_COST;
+        reviveUsed = true;
+        reviveAt(reviveX, reviveY, hpPercent);
+        grantInvulnerability(REVIVE_INVULNERABILITY_DURATION);
+        return true;
+    }
+
+    public int getCoins() {
+        return coins;
+    }
+
+    public boolean isReviveUsed() {
+        return reviveUsed;
+    }
+
+    public int getReviveCost() {
+        return REVIVE_COST;
+    }
+
+    public boolean isInvulnerable() {
+        return invulnerabilityTimer > 0f;
     }
 
     public Rectangle getBounds() {
@@ -349,6 +393,13 @@ public class Player {
         damageFlashTimer -= delta;
         if (damageFlashTimer < 0f) {
             damageFlashTimer = 0f;
+        }
+    }
+
+    private void updateInvulnerabilityTimer(float delta) {
+        invulnerabilityTimer -= delta;
+        if (invulnerabilityTimer < 0f) {
+            invulnerabilityTimer = 0f;
         }
     }
 
