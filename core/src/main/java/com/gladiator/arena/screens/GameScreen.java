@@ -48,6 +48,8 @@ public class GameScreen extends ScreenAdapter {
     private static final float HEALTH_BAR_OFFSET_Y = 6f;
     private static final float PLAYER_HEALTH_BAR_WIDTH = 44f;
     private static final float MIN_ENEMY_HEALTH_BAR_WIDTH = 34f;
+    private static final float WAVE_COMPLETE_DELAY = 1.0f;
+    private static final float WAVE_COMPLETE_FADE_ALPHA = 0.6f;
 
     private final GladiatorGame game;
     private final GameManager gameManager;
@@ -66,12 +68,16 @@ public class GameScreen extends ScreenAdapter {
     private final EnemyFactory bossFactory = new BossFactory();
     private final ShapeRenderer shapeRenderer = new ShapeRenderer();
     private Boss activeBoss;
+    private LevelManager.WaveSummary pendingWaveSummary;
     private int score;
     private int enemiesRemainingToSpawn;
     private float spawnTimer;
+    private float waveCompleteTimer;
+    private float transitionAlpha;
     private boolean disposed;
     private boolean transitioning;
     private boolean playerDeathPosted;
+    private boolean waveCompletePending;
 
     public GameScreen(GladiatorGame game) {
         this(game, new Player(), 1, 0);
@@ -111,24 +117,32 @@ public class GameScreen extends ScreenAdapter {
             return;
         }
 
-        updateSpawning(delta);
-        updateEnemies(delta);
-        damageNumberManager.update(delta);
-        if (transitioning) {
-            return;
-        }
-
-        player.update(delta, enemies);
-        removeDeadEnemies();
-        if (transitioning) {
-            return;
-        }
-
-        if (player.getHp() <= 0f && !playerDeathPosted) {
-            playerDeathPosted = true;
-            eventBus.post(GameEvent.Type.PLAYER_DIED);
+        if (waveCompletePending) {
+            updateWaveCompleteTransition(delta);
+            damageNumberManager.update(delta);
             if (transitioning) {
                 return;
+            }
+        } else {
+            updateSpawning(delta);
+            updateEnemies(delta);
+            damageNumberManager.update(delta);
+            if (transitioning) {
+                return;
+            }
+
+            player.update(delta, enemies);
+            removeDeadEnemies();
+            if (transitioning) {
+                return;
+            }
+
+            if (player.getHp() <= 0f && !playerDeathPosted) {
+                playerDeathPosted = true;
+                eventBus.post(GameEvent.Type.PLAYER_DIED);
+                if (transitioning) {
+                    return;
+                }
             }
         }
 
@@ -168,6 +182,8 @@ public class GameScreen extends ScreenAdapter {
         ArenaUi.drawText(game.getFont(), game.getBatch(), buildWaveProgressText(), PROGRESS_BAR_X, PROGRESS_BAR_Y - 8f, 0.78f, ArenaUi.GOLD);
         ArenaUi.drawText(game.getFont(), game.getBatch(), buildAttackCooldownText(), ATTACK_BAR_X, ATTACK_BAR_Y - 8f, 0.78f, ArenaUi.GOLD);
         game.getBatch().end();
+
+        drawWaveCompleteTransition();
     }
 
     private void drawBossDashTelegraph() {
@@ -451,6 +467,41 @@ public class GameScreen extends ScreenAdapter {
         return "Attack: " + (int) (progress * 100f) + "%";
     }
 
+    private void updateWaveCompleteTransition(float delta) {
+        waveCompleteTimer += delta;
+        float progress = MathUtils.clamp(waveCompleteTimer / WAVE_COMPLETE_DELAY, 0f, 1f);
+        transitionAlpha = WAVE_COMPLETE_FADE_ALPHA * progress;
+
+        if (waveCompleteTimer >= WAVE_COMPLETE_DELAY) {
+            openUpgradeScreen();
+        }
+    }
+
+    private void drawWaveCompleteTransition() {
+        if (!waveCompletePending) {
+            return;
+        }
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapeRenderer.setProjectionMatrix(game.getBatch().getProjectionMatrix());
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0f, 0f, 0f, transitionAlpha);
+        shapeRenderer.rect(0f, 0f, ARENA_WIDTH, ARENA_HEIGHT);
+        shapeRenderer.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+
+        game.getBatch().begin();
+        ArenaUi.drawCentered(game.getFont(), game.getBatch(), "WAVE CLEARED", ARENA_WIDTH / 2f, 268f, 1.45f, ArenaUi.PALE_GOLD);
+        game.getBatch().end();
+    }
+
+    private void openUpgradeScreen() {
+        transitioning = true;
+        game.setScreen(new UpgradeScreen(game, player, pendingWaveSummary, score));
+        dispose();
+    }
+
     private Enemy createAtRandomEdge(EnemyFactory factory) {
         int edge = MathUtils.random(3);
         if (edge == 0) {
@@ -475,24 +526,26 @@ public class GameScreen extends ScreenAdapter {
     }
 
     private void handleWaveCleared(GameEvent event) {
-        if (transitioning) {
+        if (transitioning || waveCompletePending) {
             return;
         }
 
-        transitioning = true;
         LevelManager.WaveSummary summary = null;
         if (event.getPayload() instanceof LevelManager.WaveSummary) {
             summary = (LevelManager.WaveSummary) event.getPayload();
         }
 
         if (summary != null && summary.getWaveNumber() >= FINAL_WAVE) {
+            transitioning = true;
             game.setScreen(new VictoryScreen(game, score));
             dispose();
             return;
         }
 
-        game.setScreen(new UpgradeScreen(game, player, summary, score));
-        dispose();
+        pendingWaveSummary = summary;
+        waveCompletePending = true;
+        waveCompleteTimer = 0f;
+        transitionAlpha = 0f;
     }
 
     private void handlePlayerDied(GameEvent event) {
