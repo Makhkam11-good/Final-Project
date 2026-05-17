@@ -53,6 +53,7 @@ public class Boss extends Enemy {
     @Override
     public void update(float delta, Player player) {
         stateTime += delta;
+        updateHitFlash(delta);
         if (player == null || isDead()) {
             return;
         }
@@ -118,8 +119,9 @@ public class Boss extends Enemy {
             return;
         }
 
-        targetPlayer.takeDamage(amount);
-        EventBus.getInstance().post(GameEvent.Type.PLAYER_HURT);
+        if (targetPlayer.takeDamage(amount)) {
+            EventBus.getInstance().post(GameEvent.Type.PLAYER_HURT);
+        }
     }
 
     @Override

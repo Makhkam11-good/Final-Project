@@ -12,6 +12,8 @@ import com.gladiator.arena.managers.AssetManager;
 public abstract class Enemy {
     protected static final float ARENA_WIDTH = 800f;
     protected static final float ARENA_HEIGHT = 480f;
+    private static final float HIT_FLASH_DURATION = 0.12f;
+    private static final Color HIT_FLASH_COLOR = new Color(1f, 0.88f, 0.42f, 1f);
 
     protected final Rectangle bounds = new Rectangle();
     protected float x;
@@ -29,6 +31,7 @@ public abstract class Enemy {
     protected int scoreReward;
     protected Color renderColor;
     protected float stateTime;
+    private float hitFlashTimer;
 
     protected Enemy(
         float x,
@@ -68,23 +71,37 @@ public abstract class Enemy {
 
     public void update(float delta, Player player) {
         stateTime += delta;
+        updateHitFlash(delta);
         updateMovement(delta, player);
         clampToArena();
         updateBounds();
 
-        if (bounds.overlaps(player.getBounds())) {
-            player.takeDamage(damage * delta);
+        if (bounds.overlaps(player.getBounds()) && player.takeContactDamage(damage)) {
             EventBus.getInstance().post(GameEvent.Type.PLAYER_HURT);
         }
     }
 
     public void render(SpriteBatch batch, AssetManager assets) {
         String animationState = isDead() ? "dead" : "run";
-        assets.drawAnimation(batch, getSpriteKey() + "." + animationState, stateTime, x, y, spriteWidth, spriteHeight);
+        assets.drawAnimation(
+            batch,
+            getSpriteKey() + "." + animationState,
+            stateTime,
+            x,
+            y,
+            spriteWidth,
+            spriteHeight,
+            hitFlashTimer > 0f ? HIT_FLASH_COLOR : null
+        );
     }
 
     public void takeDamage(float amount) {
+        if (amount <= 0f || isDead()) {
+            return;
+        }
+
         hp = Math.max(0f, hp - amount);
+        hitFlashTimer = HIT_FLASH_DURATION;
     }
 
     public boolean isDead() {
@@ -176,6 +193,13 @@ public abstract class Enemy {
     protected void clampToArena() {
         x = MathUtils.clamp(x, 0f, ARENA_WIDTH - spriteWidth);
         y = MathUtils.clamp(y, 0f, ARENA_HEIGHT - spriteHeight);
+    }
+
+    protected void updateHitFlash(float delta) {
+        hitFlashTimer -= delta;
+        if (hitFlashTimer < 0f) {
+            hitFlashTimer = 0f;
+        }
     }
 
     protected abstract void onWaveSpawn();

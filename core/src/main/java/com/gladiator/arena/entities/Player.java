@@ -2,6 +2,7 @@ package com.gladiator.arena.entities;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
@@ -30,6 +31,9 @@ public class Player {
     private static final float ATTACK_STATE_DURATION = 0.18f;
     private static final float ATTACK_EFFECT_DURATION = 0.22f;
     private static final float ATTACK_RADIUS = 80f;
+    private static final float DAMAGE_COOLDOWN = 0.65f;
+    private static final float DAMAGE_FLASH_DURATION = 0.18f;
+    private static final Color DAMAGE_FLASH_COLOR = new Color(1f, 0.46f, 0.46f, 1f);
 
     private float x;
     private float y;
@@ -46,6 +50,8 @@ public class Player {
     private float attackEndX;
     private float attackEndY;
     private float stateTime;
+    private float damageCooldownTimer;
+    private float damageFlashTimer;
 
     private final Rectangle bounds = new Rectangle();
     private PlayerStats stats;
@@ -71,6 +77,7 @@ public class Player {
 
     public void update(float delta, List<Enemy> enemies) {
         stateTime += delta;
+        updateDamageTimers(delta);
         if (isDead()) {
             velocityX = 0f;
             velocityY = 0f;
@@ -101,14 +108,35 @@ public class Player {
     }
 
     public void render(SpriteBatch batch, AssetManager assets) {
-        assets.drawAnimation(batch, "player." + getAnimationState(), stateTime, x, y, SPRITE_WIDTH, SPRITE_HEIGHT);
+        assets.drawAnimation(
+            batch,
+            "player." + getAnimationState(),
+            stateTime,
+            x,
+            y,
+            SPRITE_WIDTH,
+            SPRITE_HEIGHT,
+            damageFlashTimer > 0f ? DAMAGE_FLASH_COLOR : null
+        );
     }
 
-    public void takeDamage(float amount) {
+    public boolean takeContactDamage(float damagePerSecond) {
+        // Contact damage used to be frame-based before; scale one hit to keep roughly the same DPS.
+        return takeDamage(damagePerSecond * DAMAGE_COOLDOWN);
+    }
+
+    public boolean takeDamage(float amount) {
+        if (amount <= 0f || damageCooldownTimer > 0f || isDead()) {
+            return false;
+        }
+
         hp = Math.max(0f, hp - (amount * stats.getIncomingDamageMultiplier()));
+        damageCooldownTimer = DAMAGE_COOLDOWN;
+        damageFlashTimer = DAMAGE_FLASH_DURATION;
         if (hp <= 0f) {
             setCurrentState(deadState);
         }
+        return true;
     }
 
     public void applyUpgrade(UnaryOperator<PlayerStats> upgradeFactory) {
@@ -276,6 +304,18 @@ public class Player {
         attackEffectTimer -= delta;
         if (attackEffectTimer < 0f) {
             attackEffectTimer = 0f;
+        }
+    }
+
+    private void updateDamageTimers(float delta) {
+        damageCooldownTimer -= delta;
+        if (damageCooldownTimer < 0f) {
+            damageCooldownTimer = 0f;
+        }
+
+        damageFlashTimer -= delta;
+        if (damageFlashTimer < 0f) {
+            damageFlashTimer = 0f;
         }
     }
 

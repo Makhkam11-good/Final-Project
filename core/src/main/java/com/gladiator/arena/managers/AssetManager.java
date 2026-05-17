@@ -1,5 +1,6 @@
 package com.gladiator.arena.managers;
 
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
@@ -15,6 +16,7 @@ public final class AssetManager {
 
     private final com.badlogic.gdx.assets.AssetManager manager;
     private final Map<String, Animation<TextureRegion>> animations = new HashMap<>();
+    private final Color previousBatchColor = new Color();
     private TextureAtlas gameAtlas;
     private TextureRegion floorTile;
 
@@ -74,13 +76,33 @@ public final class AssetManager {
     }
 
     public void drawAnimation(SpriteBatch batch, String key, float stateTime, float x, float y, float width, float height) {
+        drawAnimation(batch, key, stateTime, x, y, width, height, null);
+    }
+
+    public void drawAnimation(
+        SpriteBatch batch,
+        String key,
+        float stateTime,
+        float x,
+        float y,
+        float width,
+        float height,
+        Color tint
+    ) {
         loadGameAssets();
         Animation<TextureRegion> animation = animations.get(key);
         if (animation == null) {
             return;
         }
 
+        if (tint != null) {
+            previousBatchColor.set(batch.getColor());
+            batch.setColor(tint);
+        }
         batch.draw(animation.getKeyFrame(stateTime), x, y, width, height);
+        if (tint != null) {
+            batch.setColor(previousBatchColor);
+        }
     }
 
     public void dispose() {
