@@ -36,6 +36,7 @@ public abstract class Enemy {
     private float deathTimer;
     private boolean dying;
     private float hitFlashTimer;
+    private Color tint;
 
     protected Enemy(
         float x,
@@ -100,7 +101,7 @@ public abstract class Enemy {
             y,
             spriteWidth,
             spriteHeight,
-            hitFlashTimer > 0f ? HIT_FLASH_COLOR : null
+            getRenderTint()
         );
     }
 
@@ -151,6 +152,17 @@ public abstract class Enemy {
     public void applyDifficulty(float speedMultiplier, float damageMultiplier) {
         speed *= speedMultiplier;
         damage *= damageMultiplier;
+    }
+
+    public void applyRoomMultiplier(float multiplier) {
+        hp *= multiplier;
+        maxHp *= multiplier;
+        damage *= multiplier;
+        speed *= multiplier;
+    }
+
+    public void setTint(Color tint) {
+        this.tint = tint;
     }
 
     public void setHp(float hp) {
@@ -231,6 +243,13 @@ public abstract class Enemy {
         if (deathTimer < 0f) {
             deathTimer = 0f;
         }
+    }
+
+    protected Color getRenderTint() {
+        if (hitFlashTimer > 0f) {
+            return HIT_FLASH_COLOR;
+        }
+        return tint;
     }
 
     private void startDying() {

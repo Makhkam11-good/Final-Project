@@ -3,6 +3,7 @@ package com.gladiator.arena.screens;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.ScreenAdapter;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
@@ -13,8 +14,10 @@ import com.gladiator.arena.GladiatorGame;
 import com.gladiator.arena.entities.Boss;
 import com.gladiator.arena.entities.Coin;
 import com.gladiator.arena.entities.Enemy;
+import com.gladiator.arena.entities.Goblin;
 import com.gladiator.arena.entities.Player;
 import com.gladiator.arena.entities.Portal;
+import com.gladiator.arena.entities.Slime;
 import com.gladiator.arena.events.EventBus;
 import com.gladiator.arena.events.EventListener;
 import com.gladiator.arena.events.GameEvent;
@@ -37,9 +40,10 @@ import java.util.Locale;
 public class GameScreen extends ScreenAdapter {
     private static final int FINAL_ROOM = 2;
     private static final int WAVES_PER_ROOM = 10;
-    private static final float SCREEN_TRANSITION_DELAY = 0.72f;
+    private static final float SCREEN_TRANSITION_DELAY = 1.0f;
     private static final int REVIVE_COST = 100;
     private static final float REVIVE_HP_PERCENT = 0.5f;
+    private static final float ROOM_TWO_ENEMY_MULTIPLIER = 1.5f;
     private static final float ARENA_WIDTH = 800f;
     private static final float ARENA_HEIGHT = 480f;
     private static final float DEFAULT_ENEMY_WIDTH = 32f;
@@ -56,6 +60,9 @@ public class GameScreen extends ScreenAdapter {
     private static final float HEALTH_BAR_OFFSET_Y = 6f;
     private static final float PLAYER_HEALTH_BAR_WIDTH = 44f;
     private static final float MIN_ENEMY_HEALTH_BAR_WIDTH = 34f;
+    private static final Color ROOM_TWO_SLIME_TINT = new Color(0.72f, 0.35f, 1f, 1f);
+    private static final Color ROOM_TWO_GOBLIN_TINT = new Color(1f, 0.35f, 0.28f, 1f);
+    private static final Color ROOM_TWO_BOSS_TINT = new Color(0.75f, 0.12f, 0.18f, 1f);
 
     private final GladiatorGame game;
     private final GameManager gameManager;
@@ -243,7 +250,7 @@ public class GameScreen extends ScreenAdapter {
         String hud = "HP " + (int) player.getHp() + "/" + (int) player.getMaxHp()
             + "   COINS " + player.getCoins() + "/" + REVIVE_COST
             + "   " + buildReviveStatus()
-            + "   ROOM " + roomNumber
+            + "   " + buildRoomStatus()
             + "   WAVE " + levelManager.getCurrentWave()
             + "   SCORE " + score
             + "   " + gameManager.getDifficultyName().toUpperCase(Locale.ROOT)
@@ -342,7 +349,7 @@ public class GameScreen extends ScreenAdapter {
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapeRenderer.setProjectionMatrix(game.getBatch().getProjectionMatrix());
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        shapeRenderer.setColor(0.02f, 0.025f, 0.05f, 0.38f);
+        shapeRenderer.setColor(0.025f, 0.015f, 0.075f, 0.44f);
         shapeRenderer.rect(0f, 0f, ARENA_WIDTH, ARENA_HEIGHT);
         shapeRenderer.end();
         Gdx.gl.glDisable(GL20.GL_BLEND);
@@ -362,6 +369,12 @@ public class GameScreen extends ScreenAdapter {
         shapeRenderer.rect(0f, 0f, ARENA_WIDTH, ARENA_HEIGHT);
         shapeRenderer.end();
         Gdx.gl.glDisable(GL20.GL_BLEND);
+
+        if (pendingTransition == PendingTransition.UPGRADE) {
+            game.getBatch().begin();
+            ArenaUi.drawCentered(game.getFont(), game.getBatch(), "WAVE CLEARED", ARENA_WIDTH / 2f, 268f, 1.45f, ArenaUi.PALE_GOLD);
+            game.getBatch().end();
+        }
     }
 
     private void drawBossDashTelegraph() {
@@ -704,27 +717,52 @@ public class GameScreen extends ScreenAdapter {
         return "REVIVE LOCKED";
     }
 
+    private String buildRoomStatus() {
+        if (roomNumber >= 2) {
+            return "ROOM " + roomNumber + " DANGER x" + String.format(Locale.ROOT, "%.1f", ROOM_TWO_ENEMY_MULTIPLIER);
+        }
+        return "ROOM " + roomNumber;
+    }
+
     private Enemy createAtRandomEdge(EnemyFactory factory) {
         int edge = MathUtils.random(3);
+        Enemy enemy;
         if (edge == 0) {
-            return factory.create(MathUtils.random(0f, ARENA_WIDTH - DEFAULT_ENEMY_WIDTH), ARENA_HEIGHT - DEFAULT_ENEMY_HEIGHT);
+            enemy = factory.create(MathUtils.random(0f, ARENA_WIDTH - DEFAULT_ENEMY_WIDTH), ARENA_HEIGHT - DEFAULT_ENEMY_HEIGHT);
+        } else if (edge == 1) {
+            enemy = factory.create(MathUtils.random(0f, ARENA_WIDTH - DEFAULT_ENEMY_WIDTH), 0f);
+        } else if (edge == 2) {
+            enemy = factory.create(0f, MathUtils.random(0f, ARENA_HEIGHT - DEFAULT_ENEMY_HEIGHT));
+        } else {
+            enemy = factory.create(ARENA_WIDTH - DEFAULT_ENEMY_WIDTH, MathUtils.random(0f, ARENA_HEIGHT - DEFAULT_ENEMY_HEIGHT));
         }
-        if (edge == 1) {
-            return factory.create(MathUtils.random(0f, ARENA_WIDTH - DEFAULT_ENEMY_WIDTH), 0f);
-        }
-        if (edge == 2) {
-            return factory.create(0f, MathUtils.random(0f, ARENA_HEIGHT - DEFAULT_ENEMY_HEIGHT));
-        }
-        return factory.create(ARENA_WIDTH - DEFAULT_ENEMY_WIDTH, MathUtils.random(0f, ARENA_HEIGHT - DEFAULT_ENEMY_HEIGHT));
+        applyRoomModifiers(enemy);
+        return enemy;
     }
 
     private Boss createBossAtEdgeCenter() {
         Enemy enemy = bossFactory.create(ARENA_WIDTH - Boss.SPRITE_WIDTH, (ARENA_HEIGHT - Boss.SPRITE_HEIGHT) / 2f);
+        applyRoomModifiers(enemy);
         if (enemy instanceof Boss) {
             return (Boss) enemy;
         }
 
         throw new IllegalStateException("BossFactory must create a Boss instance.");
+    }
+
+    private void applyRoomModifiers(Enemy enemy) {
+        if (roomNumber < 2 || enemy == null) {
+            return;
+        }
+
+        enemy.applyRoomMultiplier(ROOM_TWO_ENEMY_MULTIPLIER);
+        if (enemy instanceof Slime) {
+            enemy.setTint(ROOM_TWO_SLIME_TINT);
+        } else if (enemy instanceof Goblin) {
+            enemy.setTint(ROOM_TWO_GOBLIN_TINT);
+        } else if (enemy instanceof Boss) {
+            enemy.setTint(ROOM_TWO_BOSS_TINT);
+        }
     }
 
     private void handleWaveCleared(GameEvent event) {
