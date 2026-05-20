@@ -3,8 +3,6 @@ package com.gladiator.arena.ai;
 import com.gladiator.arena.entities.Boss;
 
 public class IdleBossState implements BossState {
-    private static final float DURATION = 1.5f;
-
     private final Boss boss;
     private float timer;
 
@@ -14,7 +12,7 @@ public class IdleBossState implements BossState {
 
     @Override
     public void enter() {
-        timer = DURATION;
+        timer = boss.getIdleDuration();
     }
 
     @Override

@@ -7,7 +7,8 @@ public class GameEvent {
         WAVE_CLEARED,
         PLAYER_HURT,
         PLAYER_DIED,
-        BOSS_DIED
+        BOSS_DIED,
+        BOSS_PHASE_CHANGED
     }
 
     private final Type type;

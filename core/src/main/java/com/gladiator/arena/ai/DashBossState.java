@@ -4,8 +4,6 @@ import com.badlogic.gdx.math.Vector2;
 import com.gladiator.arena.entities.Boss;
 
 public class DashBossState implements BossState {
-    private static final float DURATION = 0.6f;
-
     private final Boss boss;
     private final Vector2 dashDirection = new Vector2();
     private float timer;
@@ -18,7 +16,7 @@ public class DashBossState implements BossState {
 
     @Override
     public void enter() {
-        timer = DURATION;
+        timer = boss.getDashDuration();
         dashHitRegistered = false;
         directionLocked = true;
         dashDirection.set(boss.getPreparedDashX(), boss.getPreparedDashY());

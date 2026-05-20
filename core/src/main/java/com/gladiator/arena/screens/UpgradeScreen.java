@@ -152,7 +152,7 @@ public class UpgradeScreen extends ScreenAdapter {
         ArenaUi.drawCentered(
             game.getFont(),
             game.getBatch(),
-            "ROOM " + roomNumber + " - WAVE " + clearedWave + " CLEARED!",
+            buildClearedTitle(),
             SUMMARY_PANEL.x + SUMMARY_PANEL.width / 2f,
             441f,
             1.12f,
@@ -161,7 +161,7 @@ public class UpgradeScreen extends ScreenAdapter {
         ArenaUi.drawCentered(
             game.getFont(),
             game.getBatch(),
-            "KILLED: " + enemiesKilled + " ENEMIES     SCORE: " + score,
+            buildClearedSubtitle(),
             SUMMARY_PANEL.x + SUMMARY_PANEL.width / 2f,
             416f,
             0.84f,
@@ -315,6 +315,33 @@ public class UpgradeScreen extends ScreenAdapter {
             player.getAttackCooldown(),
             damageReduction
         );
+    }
+
+    private String buildClearedTitle() {
+        if (clearedWave == 2) {
+            return "LEVEL " + roomNumber + " " + getLocationName() + " - MINI BOSS CLEARED!";
+        }
+
+        return "LEVEL " + roomNumber + " " + getLocationName() + " - WAVE " + clearedWave + " CLEARED!";
+    }
+
+    private String buildClearedSubtitle() {
+        String stats = "KILLED: " + enemiesKilled + " ENEMIES     SCORE: " + score;
+        if (clearedWave == 2) {
+            return stats + "     MAIN BOSS AT WAVE 3";
+        }
+
+        return stats;
+    }
+
+    private String getLocationName() {
+        if (roomNumber == 2) {
+            return "Fire Arena";
+        }
+        if (roomNumber >= 3) {
+            return "Dark Castle";
+        }
+        return "Dungeon";
     }
 
     private void drawUpgradeIcon(UpgradeIcon icon, float centerX, float centerY) {

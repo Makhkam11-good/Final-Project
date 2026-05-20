@@ -15,21 +15,27 @@ public class GameOverScreen extends ScreenAdapter {
     private final GladiatorGame game;
     private final int waveReached;
     private final int score;
+    private final int levelReached;
     private final ShapeRenderer shapeRenderer = new ShapeRenderer();
-    private final Rectangle panel = new Rectangle(206f, 132f, 388f, 232f);
-    private final Rectangle retryButton = new Rectangle(250f, 210f, 140f, 46f);
-    private final Rectangle menuButton = new Rectangle(410f, 210f, 140f, 46f);
+    private final Rectangle panel = new Rectangle(190f, 104f, 420f, 284f);
+    private final Rectangle retryButton = new Rectangle(250f, 186f, 140f, 46f);
+    private final Rectangle menuButton = new Rectangle(410f, 186f, 140f, 46f);
     private boolean disposed;
     private boolean transitioning;
 
     public GameOverScreen(GladiatorGame game) {
-        this(game, 1, 0);
+        this(game, 1, 0, 1);
     }
 
     public GameOverScreen(GladiatorGame game, int waveReached, int score) {
+        this(game, waveReached, score, 1);
+    }
+
+    public GameOverScreen(GladiatorGame game, int waveReached, int score, int levelReached) {
         this.game = game;
         this.waveReached = waveReached;
         this.score = score;
+        this.levelReached = Math.max(1, levelReached);
     }
 
     @Override
@@ -57,11 +63,14 @@ public class GameOverScreen extends ScreenAdapter {
         shapeRenderer.end();
 
         game.getBatch().begin();
-        ArenaUi.drawCentered(game.getFont(), game.getBatch(), "DEFEATED", 400f, 330f, 2f, ArenaUi.PALE_GOLD);
-        ArenaUi.drawCentered(game.getFont(), game.getBatch(), "WAVE " + waveReached + "     SCORE " + score, 400f, 286f, 1f, ArenaUi.GOLD);
-        ArenaUi.drawCentered(game.getFont(), game.getBatch(), "RETRY", retryButton.x + retryButton.width / 2f, 240f, 1f, ArenaUi.BONE);
-        ArenaUi.drawCentered(game.getFont(), game.getBatch(), "MENU", menuButton.x + menuButton.width / 2f, 240f, 1f, ArenaUi.BONE);
-        ArenaUi.drawCentered(game.getFont(), game.getBatch(), "R - RETRY     M - MENU", 400f, 170f, 0.82f, ArenaUi.GOLD);
+        ArenaUi.drawCentered(game.getFont(), game.getBatch(), "DEFEATED", 400f, 356f, 2f, ArenaUi.PALE_GOLD);
+        ArenaUi.drawCentered(game.getFont(), game.getBatch(), "LEVEL " + levelReached + "     WAVE " + waveReached, 400f, 314f, 0.95f, ArenaUi.GOLD);
+        ArenaUi.drawCentered(game.getFont(), game.getBatch(), "ENEMIES KILLED: " + GameManager.getInstance().getEnemiesKilled(), 400f, 286f, 0.80f, ArenaUi.BONE);
+        ArenaUi.drawCentered(game.getFont(), game.getBatch(), "COINS COLLECTED: " + GameManager.getInstance().getCoinsCollected(), 400f, 264f, 0.80f, ArenaUi.BONE);
+        ArenaUi.drawCentered(game.getFont(), game.getBatch(), "SCORE: " + score + "     BEST COMBO: x" + GameManager.getInstance().getBestCombo(), 400f, 242f, 0.80f, ArenaUi.BONE);
+        ArenaUi.drawCentered(game.getFont(), game.getBatch(), "RETRY", retryButton.x + retryButton.width / 2f, 216f, 1f, ArenaUi.BONE);
+        ArenaUi.drawCentered(game.getFont(), game.getBatch(), "MENU", menuButton.x + menuButton.width / 2f, 216f, 1f, ArenaUi.BONE);
+        ArenaUi.drawCentered(game.getFont(), game.getBatch(), "R - RETRY     M - MENU", 400f, 146f, 0.82f, ArenaUi.GOLD);
         game.getBatch().end();
     }
 

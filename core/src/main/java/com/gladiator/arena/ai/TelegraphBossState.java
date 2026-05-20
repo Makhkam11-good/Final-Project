@@ -4,8 +4,6 @@ import com.badlogic.gdx.math.Vector2;
 import com.gladiator.arena.entities.Boss;
 
 public class TelegraphBossState implements BossState {
-    private static final float DURATION = 0.7f;
-
     private final Boss boss;
     private final Vector2 dashDirection = new Vector2();
     private float timer;
@@ -16,7 +14,7 @@ public class TelegraphBossState implements BossState {
 
     @Override
     public void enter() {
-        timer = DURATION;
+        timer = boss.getTelegraphDuration();
         boss.clearDashTelegraph();
     }
 

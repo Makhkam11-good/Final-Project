@@ -15,6 +15,7 @@ import com.gladiator.arena.entities.states.PlayerState;
 import com.gladiator.arena.entities.states.RunState;
 import com.gladiator.arena.decorator.BasePlayerStats;
 import com.gladiator.arena.decorator.PlayerStats;
+import com.gladiator.arena.managers.SoundManager;
 
 import java.util.List;
 import java.util.function.UnaryOperator;
@@ -32,9 +33,15 @@ public class Player {
     private static final float ATTACK_EFFECT_DURATION = 0.22f;
     private static final float ATTACK_RADIUS = 80f;
     private static final float ATTACK_CONE_COS = 0.45f;
+    private static final float CRITICAL_CHANCE = 0.16f;
+    private static final float CRITICAL_DAMAGE_MULTIPLIER = 1.6f;
+    private static final float DASH_SPEED = 470f;
+    private static final float DASH_DURATION = 0.18f;
+    private static final float DASH_COOLDOWN = 0.9f;
     private static final float DAMAGE_COOLDOWN = 0.65f;
     private static final float DAMAGE_FLASH_DURATION = 0.18f;
-    private static final float REVIVE_INVULNERABILITY_DURATION = 1.8f;
+    private static final float REVIVE_INVULNERABILITY_DURATION = 1.0f;
+    private static final int REVIVE_COST = 10;
     private static final Color DAMAGE_FLASH_COLOR = new Color(1f, 0.46f, 0.46f, 1f);
 
     private float x;
@@ -51,10 +58,15 @@ public class Player {
     private float attackStartY;
     private float attackEndX;
     private float attackEndY;
+    private float dashCooldownTimer;
+    private float dashStateTimer;
+    private float dashDirectionX = 1f;
+    private float dashDirectionY;
     private float stateTime;
     private float damageCooldownTimer;
     private float damageFlashTimer;
     private float invulnerabilityTimer;
+    private float lastDamageTaken;
     private int coins;
     private boolean reviveUsed;
 
@@ -84,6 +96,7 @@ public class Player {
         stateTime += delta;
         updateDamageTimers(delta);
         updateInvulnerabilityTimer(delta);
+        updateDashCooldownTimer(delta);
         if (isDead()) {
             velocityX = 0f;
             velocityY = 0f;
@@ -93,9 +106,10 @@ public class Player {
         }
 
         handleMovement(delta);
+        updateDashStateTimer(delta);
 
         attackTimer = Math.max(0f, attackTimer - delta);
-        if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE) && MathUtils.isZero(attackTimer)) {
+        if (isAttackPressed() && MathUtils.isZero(attackTimer)) {
             performAttack(enemies);
             attackTimer = stats.getAttackCooldown();
         }
@@ -133,10 +147,16 @@ public class Player {
 
     public boolean takeDamage(float amount) {
         if (amount <= 0f || damageCooldownTimer > 0f || invulnerabilityTimer > 0f || isDead()) {
+            lastDamageTaken = 0f;
             return false;
         }
 
+        float previousHp = hp;
         hp = Math.max(0f, hp - (amount * stats.getIncomingDamageMultiplier()));
+        lastDamageTaken = previousHp - hp;
+        if (lastDamageTaken <= 0f) {
+            return false;
+        }
         damageCooldownTimer = DAMAGE_COOLDOWN;
         damageFlashTimer = DAMAGE_FLASH_DURATION;
         if (hp <= 0f) {
@@ -155,9 +175,10 @@ public class Player {
         damageFlashTimer = 0f;
         attackStateTimer = 0f;
         attackEffectTimer = 0f;
+        dashCooldownTimer = 0f;
+        dashStateTimer = 0f;
         setCurrentState(idleState);
         updateBounds();
-        grantInvulnerability(REVIVE_INVULNERABILITY_DURATION);
     }
 
     public void grantInvulnerability(float duration) {
@@ -204,12 +225,41 @@ public class Player {
         return true;
     }
 
-    public void setCoins(int coins) {
-        this.coins = Math.max(0, coins);
+    public float heal(float amount) {
+        if (amount <= 0f || isDead()) {
+            return 0f;
+        }
+
+        float previousHp = hp;
+        hp = MathUtils.clamp(hp + amount, 0f, getMaxHp());
+        return hp - previousHp;
+    }
+
+    public boolean tryRevive() {
+        return tryReviveAt(x, y, 0.55f);
+    }
+
+    public boolean tryReviveAt(float reviveX, float reviveY, float hpPercent) {
+        if (!spendCoins(REVIVE_COST)) {
+            return false;
+        }
+
+        reviveUsed = true;
+        reviveAt(reviveX, reviveY, hpPercent);
+        grantInvulnerability(REVIVE_INVULNERABILITY_DURATION);
+        return true;
+    }
+
+    public boolean canAffordRevive() {
+        return coins >= REVIVE_COST;
     }
 
     public int getCoins() {
         return coins;
+    }
+
+    public void setCoins(int coins) {
+        this.coins = Math.max(0, coins);
     }
 
     public boolean isReviveUsed() {
@@ -218,6 +268,10 @@ public class Player {
 
     public void setReviveUsed(boolean reviveUsed) {
         this.reviveUsed = reviveUsed;
+    }
+
+    public int getReviveCost() {
+        return REVIVE_COST;
     }
 
     public boolean isInvulnerable() {
@@ -289,6 +343,22 @@ public class Player {
         return MathUtils.clamp(1f - attackTimer / cooldown, 0f, 1f);
     }
 
+    public float getDashReadyProgress() {
+        if (DASH_COOLDOWN <= 0f) {
+            return 1f;
+        }
+
+        return MathUtils.clamp(1f - dashCooldownTimer / DASH_COOLDOWN, 0f, 1f);
+    }
+
+    public boolean isDashing() {
+        return dashStateTimer > 0f;
+    }
+
+    public float getLastDamageTaken() {
+        return lastDamageTaken;
+    }
+
     public float getIncomingDamageMultiplier() {
         return stats.getIncomingDamageMultiplier();
     }
@@ -342,6 +412,20 @@ public class Player {
             facingY = moveY;
         }
 
+        if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE) && MathUtils.isZero(dashCooldownTimer)) {
+            startDash(moveX, moveY);
+        }
+
+        if (dashStateTimer > 0f) {
+            velocityX = dashDirectionX * DASH_SPEED;
+            velocityY = dashDirectionY * DASH_SPEED;
+            x += velocityX * delta;
+            y += velocityY * delta;
+            x = MathUtils.clamp(x, 0f, ARENA_WIDTH - SPRITE_WIDTH);
+            y = MathUtils.clamp(y, 0f, ARENA_HEIGHT - SPRITE_HEIGHT);
+            return;
+        }
+
         velocityX = moveX * stats.getSpeed();
         velocityY = moveY * stats.getSpeed();
 
@@ -353,6 +437,7 @@ public class Player {
     }
 
     private void performAttack(List<Enemy> enemies) {
+        SoundManager.getInstance().playAttack();
         attackStateTimer = ATTACK_STATE_DURATION;
         attackEffectTimer = ATTACK_EFFECT_DURATION;
         attackStartX = getCenterX();
@@ -362,12 +447,34 @@ public class Player {
         if (target != null) {
             attackEndX = target.getCenterX();
             attackEndY = target.getCenterY();
-            target.takeDamage(getDamage());
+            boolean critical = MathUtils.random() < CRITICAL_CHANCE;
+            float damage = getDamage() * (critical ? CRITICAL_DAMAGE_MULTIPLIER : 1f);
+            target.takeDamage(damage, critical);
             return;
         }
 
         attackEndX = attackStartX + facingX * ATTACK_RADIUS * 0.75f;
         attackEndY = attackStartY + facingY * ATTACK_RADIUS * 0.75f;
+    }
+
+    private boolean isAttackPressed() {
+        return Gdx.input.isKeyJustPressed(Input.Keys.J) || Gdx.input.isButtonJustPressed(Input.Buttons.LEFT);
+    }
+
+    private void startDash(float moveX, float moveY) {
+        if (MathUtils.isZero(moveX) && MathUtils.isZero(moveY)) {
+            moveX = facingX;
+            moveY = facingY;
+        }
+        if (MathUtils.isZero(moveX) && MathUtils.isZero(moveY)) {
+            moveX = 1f;
+        }
+
+        float length = (float) Math.sqrt(moveX * moveX + moveY * moveY);
+        dashDirectionX = moveX / length;
+        dashDirectionY = moveY / length;
+        dashStateTimer = DASH_DURATION;
+        dashCooldownTimer = DASH_COOLDOWN;
     }
 
     private void updateAttackStateTimer(float delta) {
@@ -381,6 +488,20 @@ public class Player {
         attackEffectTimer -= delta;
         if (attackEffectTimer < 0f) {
             attackEffectTimer = 0f;
+        }
+    }
+
+    private void updateDashCooldownTimer(float delta) {
+        dashCooldownTimer -= delta;
+        if (dashCooldownTimer < 0f) {
+            dashCooldownTimer = 0f;
+        }
+    }
+
+    private void updateDashStateTimer(float delta) {
+        dashStateTimer -= delta;
+        if (dashStateTimer < 0f) {
+            dashStateTimer = 0f;
         }
     }
 

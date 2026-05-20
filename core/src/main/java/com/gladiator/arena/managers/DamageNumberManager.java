@@ -20,6 +20,8 @@ public class DamageNumberManager {
     private static final float SPREAD_X = 10f;
     private static final float BASE_SCALE = 0.82f;
     private static final Color DAMAGE_COLOR = new Color(1f, 0.78f, 0.28f, 1f);
+    private static final Color CRITICAL_COLOR = new Color(1f, 0.25f, 0.18f, 1f);
+    private static final Color HEAL_COLOR = new Color(0.38f, 1f, 0.42f, 1f);
     private static final Color SHADOW_COLOR = new Color(0f, 0f, 0f, 0.65f);
 
     private final EventBus eventBus;
@@ -61,15 +63,26 @@ public class DamageNumberManager {
             font.setColor(SHADOW_COLOR);
             font.draw(batch, text.value, drawX + 1f, text.y - 1f);
 
-            DAMAGE_COLOR.a = alpha;
-            font.setColor(DAMAGE_COLOR);
+            font.setColor(text.color.r, text.color.g, text.color.b, alpha);
             font.draw(batch, text.value, drawX, text.y);
         }
 
         font.getData().setScale(oldScaleX, oldScaleY);
         font.setColor(oldColor);
-        DAMAGE_COLOR.a = 1f;
         SHADOW_COLOR.a = 0.65f;
+    }
+
+    public void addText(String value, float x, float y, Color color) {
+        if (value == null || value.isEmpty()) {
+            return;
+        }
+
+        Color safeColor = color == null ? DAMAGE_COLOR : color;
+        texts.add(new FloatingText(value, x, y, safeColor));
+    }
+
+    public void addHealText(float x, float y, int amount) {
+        addText("+" + Math.max(0, amount) + " HP", x, y, HEAL_COLOR);
     }
 
     public void dispose() {
@@ -86,21 +99,32 @@ public class DamageNumberManager {
         }
 
         EnemyDamagedEvent damaged = (EnemyDamagedEvent) event.getPayload();
-        texts.add(new FloatingText(
-            Integer.toString(MathUtils.round(damaged.getAmount())),
+        addText(
+            "-" + MathUtils.round(damaged.getAmount()),
             damaged.getX() + MathUtils.random(-SPREAD_X, SPREAD_X),
-            damaged.getY() + 12f
-        ));
+            damaged.getY() + 12f,
+            DAMAGE_COLOR
+        );
+        if (damaged.isCritical()) {
+            addText(
+                "CRITICAL!",
+                damaged.getX() + MathUtils.random(-SPREAD_X, SPREAD_X),
+                damaged.getY() + 30f,
+                CRITICAL_COLOR
+            );
+        }
     }
 
     private static final class FloatingText {
         private final String value;
+        private final Color color;
         private final float x;
         private float y;
         private float timer;
 
-        private FloatingText(String value, float x, float y) {
+        private FloatingText(String value, float x, float y, Color color) {
             this.value = value;
+            this.color = new Color(color);
             this.x = x;
             this.y = y;
             timer = LIFETIME;

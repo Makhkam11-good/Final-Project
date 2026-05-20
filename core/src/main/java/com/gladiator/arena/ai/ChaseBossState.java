@@ -3,8 +3,6 @@ package com.gladiator.arena.ai;
 import com.gladiator.arena.entities.Boss;
 
 public class ChaseBossState implements BossState {
-    private static final float DURATION = 3.0f;
-
     private final Boss boss;
     private float timer;
 
@@ -14,7 +12,7 @@ public class ChaseBossState implements BossState {
 
     @Override
     public void enter() {
-        timer = DURATION;
+        timer = boss.getChaseDuration();
     }
 
     @Override

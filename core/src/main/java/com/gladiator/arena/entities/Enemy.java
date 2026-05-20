@@ -9,13 +9,14 @@ import com.gladiator.arena.events.EnemyDamagedEvent;
 import com.gladiator.arena.events.EventBus;
 import com.gladiator.arena.events.GameEvent;
 import com.gladiator.arena.managers.AssetManager;
+import com.gladiator.arena.managers.SoundManager;
 
 public abstract class Enemy {
     protected static final float ARENA_WIDTH = 800f;
     protected static final float ARENA_HEIGHT = 480f;
     private static final float HIT_FLASH_DURATION = 0.12f;
     private static final float FALLBACK_DEATH_DURATION = 0.45f;
-    private static final Color HIT_FLASH_COLOR = new Color(1f, 0.88f, 0.42f, 1f);
+    private static final Color HIT_FLASH_COLOR = new Color(1f, 0.18f, 0.14f, 1f);
 
     protected final Rectangle bounds = new Rectangle();
     protected float x;
@@ -86,7 +87,7 @@ public abstract class Enemy {
         updateBounds();
 
         if (bounds.overlaps(player.getBounds()) && player.takeContactDamage(damage)) {
-            EventBus.getInstance().post(GameEvent.Type.PLAYER_HURT);
+            EventBus.getInstance().post(new GameEvent(GameEvent.Type.PLAYER_HURT, player.getLastDamageTaken()));
         }
     }
 
@@ -105,6 +106,10 @@ public abstract class Enemy {
     }
 
     public void takeDamage(float amount) {
+        takeDamage(amount, false);
+    }
+
+    public void takeDamage(float amount, boolean critical) {
         if (amount <= 0f || dying) {
             return;
         }
@@ -114,9 +119,14 @@ public abstract class Enemy {
         float actualDamage = previousHp - hp;
         hitFlashTimer = HIT_FLASH_DURATION;
         if (actualDamage > 0f) {
+            if (hp <= 0f) {
+                SoundManager.getInstance().playEnemyDeath();
+            } else {
+                SoundManager.getInstance().playEnemyHit();
+            }
             EventBus.getInstance().post(new GameEvent(
                 GameEvent.Type.ENEMY_DAMAGED,
-                new EnemyDamagedEvent(getCenterX(), y + spriteHeight, actualDamage)
+                new EnemyDamagedEvent(getCenterX(), y + spriteHeight, actualDamage, critical, this instanceof Boss)
             ));
         }
         if (hp <= 0f) {
