@@ -37,7 +37,6 @@ public abstract class Enemy {
     private boolean dying;
     private float hitFlashTimer;
     private Color tint;
-    private boolean countsTowardWave = true;
 
     protected Enemy(
         float x,
@@ -107,7 +106,7 @@ public abstract class Enemy {
     }
 
     public void takeDamage(float amount) {
-        if (amount <= 0f || dying || !canTakeDamage()) {
+        if (amount <= 0f || dying) {
             return;
         }
 
@@ -164,14 +163,6 @@ public abstract class Enemy {
 
     public void setTint(Color tint) {
         this.tint = tint;
-    }
-
-    public boolean countsTowardWave() {
-        return countsTowardWave;
-    }
-
-    public void setCountsTowardWave(boolean countsTowardWave) {
-        this.countsTowardWave = countsTowardWave;
     }
 
     public void setHp(float hp) {
@@ -259,10 +250,6 @@ public abstract class Enemy {
             return HIT_FLASH_COLOR;
         }
         return tint;
-    }
-
-    protected boolean canTakeDamage() {
-        return true;
     }
 
     private void startDying() {

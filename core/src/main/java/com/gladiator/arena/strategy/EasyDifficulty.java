@@ -17,11 +17,6 @@ public class EasyDifficulty implements DifficultyStrategy {
     }
 
     @Override
-    public float getEnemyCountMultiplier() {
-        return 0.75f;
-    }
-
-    @Override
     public float getSpawnInterval() {
         return 2.0f;
     }

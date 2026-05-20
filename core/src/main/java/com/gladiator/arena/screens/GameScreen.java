@@ -44,8 +44,6 @@ public class GameScreen extends ScreenAdapter {
     private static final int REVIVE_COST = 100;
     private static final float REVIVE_HP_PERCENT = 0.5f;
     private static final float ROOM_TWO_ENEMY_MULTIPLIER = 1.5f;
-    private static final float ROOM_TWO_SHIELD_AOE_RADIUS = 82f;
-    private static final float ROOM_TWO_SHIELD_AOE_DAMAGE = 20f;
     private static final float ARENA_WIDTH = 800f;
     private static final float ARENA_HEIGHT = 480f;
     private static final float DEFAULT_ENEMY_WIDTH = 32f;
@@ -240,7 +238,6 @@ public class GameScreen extends ScreenAdapter {
 
         drawEntityFallbacks();
         drawBossDashTelegraph();
-        drawBossShield();
         drawHudPanel();
         drawCharacterHealthBars();
         drawAttackEffect();
@@ -402,32 +399,6 @@ public class GameScreen extends ScreenAdapter {
         Gdx.gl.glDisable(GL20.GL_BLEND);
     }
 
-    private void drawBossShield() {
-        if (activeBoss == null || activeBoss.isDead() || !activeBoss.isShieldActive()) {
-            return;
-        }
-
-        float bossX = activeBoss.getCenterX();
-        float bossY = activeBoss.getCenterY();
-
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-        shapeRenderer.setProjectionMatrix(game.getBatch().getProjectionMatrix());
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        if (roomNumber >= 2) {
-            shapeRenderer.setColor(1f, 0.05f, 0.02f, 0.18f);
-            shapeRenderer.circle(bossX, bossY, ROOM_TWO_SHIELD_AOE_RADIUS);
-            shapeRenderer.setColor(1f, 0.12f, 0.05f, 0.55f);
-            shapeRenderer.circle(bossX, bossY, ROOM_TWO_SHIELD_AOE_RADIUS * 0.92f);
-        }
-        shapeRenderer.setColor(0.25f, 0.65f, 1f, 0.25f);
-        shapeRenderer.circle(bossX, bossY, 58f);
-        shapeRenderer.setColor(0.62f, 0.9f, 1f, 0.42f);
-        shapeRenderer.circle(bossX, bossY, 42f);
-        shapeRenderer.end();
-        Gdx.gl.glDisable(GL20.GL_BLEND);
-    }
-
     private void drawHudPanel() {
         shapeRenderer.setProjectionMatrix(game.getBatch().getProjectionMatrix());
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
@@ -573,27 +544,27 @@ public class GameScreen extends ScreenAdapter {
         portal = null;
 
         if (waveNumber == 1) {
-            addScaledPendingEnemies(slimeFactory, 4);
+            addPendingEnemies(slimeFactory, 4);
         } else if (waveNumber == 2) {
-            addScaledPendingEnemies(slimeFactory, 6);
+            addPendingEnemies(slimeFactory, 6);
         } else if (waveNumber == 3) {
-            addScaledPendingEnemies(slimeFactory, 4);
-            addScaledPendingEnemies(goblinFactory, 2);
+            addPendingEnemies(slimeFactory, 4);
+            addPendingEnemies(goblinFactory, 2);
         } else if (waveNumber == 4) {
-            addScaledPendingEnemies(goblinFactory, 5);
-            addScaledPendingEnemies(slimeFactory, 3);
+            addPendingEnemies(goblinFactory, 5);
+            addPendingEnemies(slimeFactory, 3);
         } else if (waveNumber == 5) {
-            addScaledPendingEnemies(goblinFactory, 8);
+            addPendingEnemies(goblinFactory, 8);
         } else if (waveNumber == 6) {
-            addScaledPendingEnemies(goblinFactory, 6);
-            addScaledPendingEnemies(slimeFactory, 4);
+            addPendingEnemies(goblinFactory, 6);
+            addPendingEnemies(slimeFactory, 4);
         } else if (waveNumber == 7) {
-            addScaledPendingEnemies(goblinFactory, 10);
+            addPendingEnemies(goblinFactory, 10);
         } else if (waveNumber == 8) {
-            addScaledPendingEnemies(goblinFactory, 8);
-            addScaledPendingEnemies(slimeFactory, 5);
+            addPendingEnemies(goblinFactory, 8);
+            addPendingEnemies(slimeFactory, 5);
         } else if (waveNumber == 9) {
-            addScaledPendingEnemies(goblinFactory, 12);
+            addPendingEnemies(goblinFactory, 12);
         } else {
             activeBoss = createBossAtEdgeCenter();
             enemies.add(activeBoss);
@@ -606,11 +577,6 @@ public class GameScreen extends ScreenAdapter {
         enemiesRemainingToSpawn = pendingSpawnFactories.size();
         spawnTimer = 0f;
         return enemiesRemainingToSpawn;
-    }
-
-    private void addScaledPendingEnemies(EnemyFactory factory, int baseCount) {
-        int scaledCount = Math.max(1, Math.round(baseCount * gameManager.getDifficulty().getEnemyCountMultiplier()));
-        addPendingEnemies(factory, scaledCount);
     }
 
     private void addPendingEnemies(EnemyFactory factory, int count) {
@@ -668,48 +634,6 @@ public class GameScreen extends ScreenAdapter {
                 return;
             }
         }
-
-        handleBossShieldPulse();
-    }
-
-    private void handleBossShieldPulse() {
-        if (activeBoss == null || activeBoss.isDead() || !activeBoss.consumeShieldPulseRequest()) {
-            return;
-        }
-
-        spawnGoblinNearBoss(activeBoss);
-        if (roomNumber >= 2) {
-            damagePlayerNearBoss(activeBoss);
-            if (player.getHp() <= 0f) {
-                resolvePlayerDeath();
-            }
-        }
-    }
-
-    private void spawnGoblinNearBoss(Boss boss) {
-        float x = boss.getCenterX() + MathUtils.random(-90f, 90f);
-        float y = boss.getCenterY() + MathUtils.random(-90f, 90f);
-
-        x = MathUtils.clamp(x, 0f, ARENA_WIDTH - DEFAULT_ENEMY_WIDTH);
-        y = MathUtils.clamp(y, 0f, ARENA_HEIGHT - DEFAULT_ENEMY_HEIGHT);
-
-        Enemy goblin = goblinFactory.create(x, y);
-        goblin.setCountsTowardWave(false);
-        applyRoomModifiers(goblin);
-        enemies.add(goblin);
-    }
-
-    private void damagePlayerNearBoss(Boss boss) {
-        float distance = Vector2.dst(
-            player.getCenterX(),
-            player.getCenterY(),
-            boss.getCenterX(),
-            boss.getCenterY()
-        );
-
-        if (distance <= ROOM_TWO_SHIELD_AOE_RADIUS && player.takeDamage(ROOM_TWO_SHIELD_AOE_DAMAGE)) {
-            eventBus.post(GameEvent.Type.PLAYER_HURT);
-        }
     }
 
     private void removeDeadEnemies() {
@@ -737,11 +661,9 @@ public class GameScreen extends ScreenAdapter {
                 continue;
             }
 
-            if (enemy.countsTowardWave()) {
-                eventBus.post(GameEvent.Type.ENEMY_DIED);
-                if (transitioning) {
-                    return;
-                }
+            eventBus.post(GameEvent.Type.ENEMY_DIED);
+            if (transitioning) {
+                return;
             }
         }
     }
