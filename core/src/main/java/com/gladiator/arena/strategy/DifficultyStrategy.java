@@ -7,5 +7,7 @@ public interface DifficultyStrategy {
 
     float getBossHp();
 
+    float getEnemyCountMultiplier();
+
     float getSpawnInterval();
 }

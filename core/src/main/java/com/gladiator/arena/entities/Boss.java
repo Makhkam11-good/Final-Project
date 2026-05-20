@@ -16,6 +16,8 @@ public class Boss extends Enemy {
     private static final float DASH_DAMAGE = 40f;
     private static final float CHASE_SPEED = 80f;
     private static final float DASH_SPEED_MULTIPLIER = 5f;
+    private static final float SHIELD_INTERVAL = 6.0f;
+    private static final float SHIELD_DURATION = 2.0f;
     private static final float HITBOX_OFFSET_X = 12f;
     private static final float HITBOX_OFFSET_Y = 8f;
     private static final float HITBOX_WIDTH = 72f;
@@ -31,7 +33,11 @@ public class Boss extends Enemy {
     private Player targetPlayer;
     private float preparedDashX = 1f;
     private float preparedDashY;
+    private float shieldTimer;
+    private float shieldActiveTimer;
     private boolean dashTelegraphVisible;
+    private boolean shieldActive;
+    private boolean shieldPulseRequested;
 
     public Boss(float x, float y) {
         super(
@@ -61,6 +67,7 @@ public class Boss extends Enemy {
         stateTime += delta;
         updateHitFlash(delta);
         if (isDead()) {
+            clearShield();
             updateDeathTimer(delta);
             return;
         }
@@ -68,6 +75,7 @@ public class Boss extends Enemy {
             return;
         }
 
+        updateShield(delta);
         targetPlayer = player;
         float playerX = player.getCenterX();
         float playerY = player.getCenterY();
@@ -140,6 +148,19 @@ public class Boss extends Enemy {
         dashTelegraphVisible = false;
     }
 
+    public boolean isShieldActive() {
+        return shieldActive && !isDead();
+    }
+
+    public boolean consumeShieldPulseRequest() {
+        if (!shieldPulseRequested) {
+            return false;
+        }
+
+        shieldPulseRequested = false;
+        return true;
+    }
+
     public void moveTowardTarget(float targetX, float targetY, float delta, float moveSpeed) {
         moveToward(targetX, targetY, delta, moveSpeed);
     }
@@ -166,6 +187,7 @@ public class Boss extends Enemy {
     @Override
     protected void onWaveSpawn() {
         clearDashTelegraph();
+        resetShield();
         changeState(idleState);
     }
 
@@ -174,7 +196,44 @@ public class Boss extends Enemy {
     }
 
     @Override
+    protected boolean canTakeDamage() {
+        return !isShieldActive();
+    }
+
+    @Override
     protected String getSpriteKey() {
         return "boss";
+    }
+
+    private void updateShield(float delta) {
+        if (shieldActive) {
+            shieldActiveTimer -= delta;
+            if (shieldActiveTimer <= 0f) {
+                shieldActive = false;
+                shieldActiveTimer = 0f;
+                shieldTimer = SHIELD_INTERVAL;
+            }
+            return;
+        }
+
+        shieldTimer -= delta;
+        if (shieldTimer <= 0f) {
+            shieldActive = true;
+            shieldActiveTimer = SHIELD_DURATION;
+            shieldPulseRequested = true;
+        }
+    }
+
+    private void resetShield() {
+        shieldTimer = SHIELD_INTERVAL;
+        shieldActiveTimer = 0f;
+        shieldActive = false;
+        shieldPulseRequested = false;
+    }
+
+    private void clearShield() {
+        shieldActive = false;
+        shieldActiveTimer = 0f;
+        shieldPulseRequested = false;
     }
 }

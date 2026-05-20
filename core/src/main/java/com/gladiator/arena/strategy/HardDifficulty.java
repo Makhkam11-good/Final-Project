@@ -17,6 +17,11 @@ public class HardDifficulty implements DifficultyStrategy {
     }
 
     @Override
+    public float getEnemyCountMultiplier() {
+        return 1.5f;
+    }
+
+    @Override
     public float getSpawnInterval() {
         return 1.0f;
     }

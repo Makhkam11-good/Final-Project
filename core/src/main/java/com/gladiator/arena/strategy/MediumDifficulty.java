@@ -17,6 +17,11 @@ public class MediumDifficulty implements DifficultyStrategy {
     }
 
     @Override
+    public float getEnemyCountMultiplier() {
+        return 1.0f;
+    }
+
+    @Override
     public float getSpawnInterval() {
         return 1.5f;
     }
