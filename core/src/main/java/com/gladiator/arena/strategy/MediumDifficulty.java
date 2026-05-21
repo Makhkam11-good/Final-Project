@@ -8,16 +8,16 @@ public class MediumDifficulty implements DifficultyStrategy {
 
     @Override
     public float getEnemyDamageMult() {
-        return 1.0f;
+        return 0.9f;
     }
 
     @Override
     public float getBossHp() {
-        return 500f;
+        return 450f;
     }
 
     @Override
     public float getSpawnInterval() {
-        return 1.5f;
+        return 2.0f;
     }
 }

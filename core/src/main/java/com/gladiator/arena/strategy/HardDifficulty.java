@@ -3,21 +3,21 @@ package com.gladiator.arena.strategy;
 public class HardDifficulty implements DifficultyStrategy {
     @Override
     public float getEnemySpeedMult() {
-        return 1.3f;
+        return 1.1f;
     }
 
     @Override
     public float getEnemyDamageMult() {
-        return 1.5f;
+        return 1.1f;
     }
 
     @Override
     public float getBossHp() {
-        return 1000f;
+        return 600f;
     }
 
     @Override
     public float getSpawnInterval() {
-        return 1.0f;
+        return 2.0f;
     }
 }

@@ -32,7 +32,6 @@ public class Player {
     private static final float ATTACK_STATE_DURATION = 0.18f;
     private static final float ATTACK_EFFECT_DURATION = 0.22f;
     private static final float ATTACK_RADIUS = 80f;
-    private static final float ATTACK_CONE_COS = 0.45f;
     private static final float CRITICAL_CHANCE = 0.16f;
     private static final float CRITICAL_DAMAGE_MULTIPLIER = 1.6f;
     private static final float DASH_SPEED = 470f;
@@ -447,6 +446,7 @@ public class Player {
         if (target != null) {
             attackEndX = target.getCenterX();
             attackEndY = target.getCenterY();
+            faceTarget(attackEndX - attackStartX, attackEndY - attackStartY);
             boolean critical = MathUtils.random() < CRITICAL_CHANCE;
             float damage = getDamage() * (critical ? CRITICAL_DAMAGE_MULTIPLIER : 1f);
             target.takeDamage(damage, critical);
@@ -573,10 +573,6 @@ public class Player {
             float targetX = enemy.getCenterX();
             float targetY = enemy.getCenterY();
             float distance = Vector2.dst(centerX, centerY, targetX, targetY);
-            if (!isInsideAttackCone(targetX - centerX, targetY - centerY, distance)) {
-                continue;
-            }
-
             if (distance <= bestDistance) {
                 bestDistance = distance;
                 closest = enemy;
@@ -586,15 +582,13 @@ public class Player {
         return closest;
     }
 
-    private boolean isInsideAttackCone(float targetX, float targetY, float distance) {
-        if (distance > ATTACK_RADIUS) {
-            return false;
-        }
+    private void faceTarget(float targetX, float targetY) {
+        float distance = (float) Math.sqrt(targetX * targetX + targetY * targetY);
         if (distance <= 0.001f) {
-            return true;
+            return;
         }
 
-        float dot = (targetX / distance) * facingX + (targetY / distance) * facingY;
-        return dot >= ATTACK_CONE_COS;
+        facingX = targetX / distance;
+        facingY = targetY / distance;
     }
 }

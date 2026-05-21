@@ -7,6 +7,8 @@ import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.gladiator.arena.GladiatorGame;
 import com.gladiator.arena.entities.Boss;
@@ -46,6 +48,7 @@ public class GameScreen extends ScreenAdapter {
     private static final int FINAL_LEVEL = 3;
     private static final int WAVES_PER_ROOM = 3;
     private static final float SCREEN_TRANSITION_DELAY = 0.72f;
+    private static final float LOOT_COLLECT_DELAY = 2.0f;
     private static final float REVIVE_HP_PERCENT = 0.5f;
     private static final float REVIVE_HEAL_TEXT_OFFSET = 66f;
     private static final float REVIVE_POPUP_ANIMATION_DURATION = 0.18f;
@@ -105,6 +108,9 @@ public class GameScreen extends ScreenAdapter {
     private final ShapeRenderer shapeRenderer = new ShapeRenderer();
     private final Matrix4 normalProjection = new Matrix4();
     private final Matrix4 shakenProjection = new Matrix4();
+    private final Rectangle reviveButton = new Rectangle(248f, 164f, 132f, 36f);
+    private final Rectangle giveUpButton = new Rectangle(420f, 164f, 132f, 36f);
+    private final Rectangle giveUpOnlyButton = new Rectangle(326f, 164f, 148f, 36f);
     private Boss activeBoss;
     private Portal portal;
     private int roomNumber;
@@ -121,11 +127,13 @@ public class GameScreen extends ScreenAdapter {
     private float bossPhaseMessageTimer;
     private float revivePromptTimer;
     private float arenaPulseTimer;
+    private float lootCollectTimer;
     private int comboCount;
     private int nextComboBonusAt = COMBO_BONUS_STEP;
     private String bossPhaseMessage = "";
     private boolean disposed;
     private boolean transitioning;
+    private boolean lootCollectPending;
     private boolean revivePromptActive;
     private boolean playerDeathPosted;
     private PendingTransition pendingTransition = PendingTransition.NONE;
@@ -239,27 +247,31 @@ public class GameScreen extends ScreenAdapter {
         }
 
         if (!transitioning) {
-            updateSpawning(delta);
-            updateEnemies(delta);
-            if (transitioning) {
-                renderGame();
-                return;
+            if (lootCollectPending) {
+                updateLootCollect(delta);
+            } else {
+                updateSpawning(delta);
+                updateEnemies(delta);
+                if (transitioning) {
+                    renderGame();
+                    return;
+                }
+                player.update(delta, enemies);
+                updateCoins(delta);
+                updatePickups(delta);
+                updatePortal(delta);
+                if (transitioning) {
+                    renderGame();
+                    return;
+                }
+                removeDeadEnemies();
+                if (transitioning) {
+                    renderGame();
+                    return;
+                }
+                resolvePlayerDeath();
+                updateLastSafePosition();
             }
-            player.update(delta, enemies);
-            updateCoins(delta);
-            updatePickups(delta);
-            updatePortal(delta);
-            if (transitioning) {
-                renderGame();
-                return;
-            }
-            removeDeadEnemies();
-            if (transitioning) {
-                renderGame();
-                return;
-            }
-            resolvePlayerDeath();
-            updateLastSafePosition();
         }
         damageNumberManager.update(delta);
         updateHitEffects(delta);
@@ -495,6 +507,7 @@ public class GameScreen extends ScreenAdapter {
             SoundManager.getInstance().playGameOver();
         }
 
+        lootCollectPending = false;
         transitioning = true;
         pendingTransition = next;
         screenTransitionTimer = SCREEN_TRANSITION_DELAY;
@@ -636,6 +649,7 @@ public class GameScreen extends ScreenAdapter {
         float panelHeight = 190f * (0.88f + 0.12f * smooth);
         float panelX = ARENA_WIDTH / 2f - panelWidth / 2f;
         float panelY = ARENA_HEIGHT / 2f - panelHeight / 2f;
+        Vector2 mouse = game.screenToWorld(Gdx.input.getX(), Gdx.input.getY());
 
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
@@ -645,10 +659,10 @@ public class GameScreen extends ScreenAdapter {
         shapeRenderer.rect(0f, 0f, ARENA_WIDTH, ARENA_HEIGHT);
         ArenaUi.drawPanel(shapeRenderer, panelX, panelY, panelWidth, panelHeight, ArenaUi.INK, canRevive ? ArenaUi.GOLD : ArenaUi.RED);
         if (canRevive) {
-            ArenaUi.drawThinPanel(shapeRenderer, 248f, 164f, 132f, 36f, ArenaUi.GREEN, ArenaUi.GOLD);
-            ArenaUi.drawThinPanel(shapeRenderer, 420f, 164f, 132f, 36f, ArenaUi.RED, ArenaUi.GOLD);
+            ArenaUi.drawButton(shapeRenderer, reviveButton, ArenaUi.GREEN, reviveButton.contains(mouse));
+            ArenaUi.drawButton(shapeRenderer, giveUpButton, ArenaUi.RED, giveUpButton.contains(mouse));
         } else {
-            ArenaUi.drawThinPanel(shapeRenderer, 326f, 164f, 148f, 36f, ArenaUi.RED, ArenaUi.GOLD);
+            ArenaUi.drawButton(shapeRenderer, giveUpOnlyButton, ArenaUi.RED, giveUpOnlyButton.contains(mouse));
         }
         shapeRenderer.end();
         Gdx.gl.glDisable(GL20.GL_BLEND);
@@ -658,11 +672,11 @@ public class GameScreen extends ScreenAdapter {
         ArenaUi.drawCentered(game.getFont(), game.getBatch(), "Revive for " + player.getReviveCost() + " coins?", 400f, 272f, 0.94f, ArenaUi.PALE_GOLD);
         ArenaUi.drawCentered(game.getFont(), game.getBatch(), "Current coins: " + player.getCoins(), 400f, 242f, 0.84f, ArenaUi.BONE);
         if (canRevive) {
-            ArenaUi.drawCentered(game.getFont(), game.getBatch(), "[R] Revive", 314f, 190f, 0.78f, ArenaUi.BONE);
-            ArenaUi.drawCentered(game.getFont(), game.getBatch(), "[ESC] Give Up", 486f, 190f, 0.72f, ArenaUi.BONE);
+            ArenaUi.drawCentered(game.getFont(), game.getBatch(), "REVIVE", reviveButton.x + reviveButton.width / 2f, 190f, 0.78f, ArenaUi.BONE);
+            ArenaUi.drawCentered(game.getFont(), game.getBatch(), "GIVE UP", giveUpButton.x + giveUpButton.width / 2f, 190f, 0.72f, ArenaUi.BONE);
         } else {
             ArenaUi.drawCentered(game.getFont(), game.getBatch(), "Not enough coins", 400f, 218f, 0.82f, ArenaUi.RED);
-            ArenaUi.drawCentered(game.getFont(), game.getBatch(), "[ESC] Give Up", 400f, 190f, 0.72f, ArenaUi.BONE);
+            ArenaUi.drawCentered(game.getFont(), game.getBatch(), "GIVE UP", giveUpOnlyButton.x + giveUpOnlyButton.width / 2f, 190f, 0.72f, ArenaUi.BONE);
         }
         game.getBatch().end();
     }
@@ -1012,6 +1026,19 @@ public class GameScreen extends ScreenAdapter {
         }
     }
 
+    private void updateLootCollect(float delta) {
+        player.update(delta, enemies);
+        updateCoins(delta);
+        updatePickups(delta);
+        updateLastSafePosition();
+
+        lootCollectTimer -= delta;
+        if (lootCollectTimer <= 0f) {
+            lootCollectPending = false;
+            startScreenTransition(PendingTransition.UPGRADE);
+        }
+    }
+
     private void updateEnemies(float delta) {
         for (Enemy enemy : enemies) {
             enemy.update(delta, player);
@@ -1223,7 +1250,20 @@ public class GameScreen extends ScreenAdapter {
             return;
         }
 
-        startScreenTransition(PendingTransition.UPGRADE);
+        startLootCollectDelay();
+    }
+
+    private void startLootCollectDelay() {
+        if (lootCollectPending) {
+            return;
+        }
+
+        enemiesRemainingToSpawn = 0;
+        pendingSpawnFactories.clear();
+        lootCollectPending = true;
+        lootCollectTimer = LOOT_COLLECT_DELAY;
+        bossPhaseMessage = "WAVE CLEARED - COLLECT LOOT";
+        bossPhaseMessageTimer = LOOT_COLLECT_DELAY;
     }
 
     private void handlePlayerDied(GameEvent event) {
@@ -1250,9 +1290,29 @@ public class GameScreen extends ScreenAdapter {
             return;
         }
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-            revivePromptActive = false;
-            startScreenTransition(PendingTransition.GAME_OVER);
+            giveUpAfterDeath();
+            return;
         }
+
+        if (!Gdx.input.justTouched()) {
+            return;
+        }
+
+        Vector2 touch = game.screenToWorld(Gdx.input.getX(), Gdx.input.getY());
+        if (player.canAffordRevive()) {
+            if (reviveButton.contains(touch)) {
+                tryRevivePlayer();
+            } else if (giveUpButton.contains(touch)) {
+                giveUpAfterDeath();
+            }
+        } else if (giveUpOnlyButton.contains(touch)) {
+            giveUpAfterDeath();
+        }
+    }
+
+    private void giveUpAfterDeath() {
+        revivePromptActive = false;
+        startScreenTransition(PendingTransition.GAME_OVER);
     }
 
     private boolean tryRevivePlayer() {
