@@ -1,33 +1,66 @@
-# ПпппGladiatorArena
+# Gladiator Arena
 
-A [libGDX](https://libgdx.com/) project generated with [gdx-liftoff](https://github.com/libgdx/gdx-liftoff).
+Gladiator Arena is a Java/LibGDX desktop 2D arena game project. The player fights through enemy waves, chooses upgrades between rounds, and finishes the run with a boss battle.
 
-This project was generated with a template including simple application launchers and an `ApplicationAdapter` extension that draws libGDX logo.
+## Features
 
-## Platforms
+- Main menu, pause flow, game over screen, victory screen, and upgrade screen.
+- Wave-based arena combat with slimes, goblins, and a final boss.
+- Difficulty strategies for easy, medium, and hard runs.
+- Manual player attack on cooldown with a visible attack effect.
+- Player upgrades for damage, speed, attack speed, armor, shield, fire, and poison-style stat changes.
+- HUD with HP, wave, score, difficulty, attack cooldown, wave progress, character HP bars, boss HP, floating damage numbers, and boss dash telegraph.
+- Safe sprite/animation fallback behavior through the asset manager when an animation is missing.
 
-- `core`: Main module with the application logic shared by all platforms.
-- `lwjgl3`: Primary desktop platform using LWJGL3; was called 'desktop' in older docs.
+## Architecture
 
-## Gradle
+The project keeps gameplay code in the `core` module and the desktop launcher in the `lwjgl3` module.
 
-This project uses [Gradle](https://gradle.org/) to manage dependencies.
-The Gradle wrapper was included, so you can run Gradle tasks using `gradlew.bat` or `./gradlew` commands.
-Useful Gradle tasks and flags:
+Notable patterns and responsibilities:
 
-- `--continue`: when using this flag, errors will not stop the tasks from running.
-- `--daemon`: thanks to this flag, Gradle daemon will be used to run chosen tasks.
-- `--offline`: when using this flag, cached dependency archives will be used.
-- `--refresh-dependencies`: this flag forces validation of all dependencies. Useful for snapshot versions.
-- `build`: builds sources and archives of every project.
-- `cleanEclipse`: removes Eclipse project data.
-- `cleanIdea`: removes IntelliJ project data.
-- `clean`: removes `build` folders, which store compiled classes and built archives.
-- `eclipse`: generates Eclipse project data.
-- `idea`: generates IntelliJ project data.
-- `lwjgl3:jar`: builds application's runnable jar, which can be found at `lwjgl3/build/libs`.
-- `lwjgl3:run`: starts the application.
-- `test`: runs unit tests (if any).
+- `screens`: LibGDX screens for menu, gameplay, pause, upgrades, victory, and game over flow.
+- `entities`: player, enemies, boss, hitboxes, health, rendering, and entity state.
+- `ai`: enemy and boss behavior. The boss uses explicit states for idle, chase, telegraph, and dash behavior.
+- `factories`: enemy creation through factory classes.
+- `decorator`: player stat upgrades using decorator-style composition.
+- `strategy`: difficulty tuning through strategy classes.
+- `events`: lightweight event bus for gameplay events such as enemy death, player death, boss death, and damage feedback.
+- `managers`: game state, level progress, assets, and small gameplay presentation managers.
 
-Note that most tasks that are not specific to a single project can be run with `name:` prefix, where the `name` should be replaced with the ID of a specific project.
-For example, `core:clean` removes `build` folder only from the `core` project.
+## Controls
+
+- `WASD`: move the player.
+- `Space`: manual attack.
+- `Esc`: pause the game.
+
+## Gameplay Loop
+
+Start from the menu, choose a difficulty, then survive arena waves. Defeated enemies increase score and advance wave progress. After each cleared wave, choose an upgrade and continue. Wave 10 spawns the boss; watch for the red dash telegraph, dodge the charge, and defeat the boss to win.
+
+## Build
+
+Compile the desktop target:
+
+```bash
+./gradlew lwjgl3:classes
+```
+
+On Windows:
+
+```bat
+gradlew.bat lwjgl3:classes
+```
+
+## Run
+
+Launch the desktop game:
+
+```bash
+./gradlew lwjgl3:run
+```
+
+On Windows:
+
+```bat
+gradlew.bat lwjgl3:run
+```
